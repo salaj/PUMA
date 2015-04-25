@@ -480,6 +480,12 @@ void Puma::inverse_kinematics(XMFLOAT3 pos, XMFLOAT3 normal, float &a1, float &a
 {
 	float l1 = .91f, l2 = .81f, l3 = .33f, dy = .27f, dz = .26f;
 
+	float len = sqrtf( normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
+
+	normal.x /= len;
+	normal.y /= len;
+	normal.z /= len;
+
 	float normalizationFactor = sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
 	normal = XMFLOAT3(normal.x / normalizationFactor, normal.y / normalizationFactor, normal.z / normalizationFactor);
 	XMFLOAT3 pos1 = XMFLOAT3(pos.x + normal.x * l3, pos.y + normal.y * l3, pos.z + normal.z * l3);
@@ -567,8 +573,41 @@ void Puma::UpdatePuma(float dt)
 	}
 }
 
+void Puma::UpdateInput()
+{
+	static KeyboardState state;
+	if (!m_keyboard->GetState(state))
+		return;
+	float factor = 0.1f;
+	if (state.isKeyDown(DIK_W))
+	{
+		m_camera.UpdatePosition(XMFLOAT3(0, 0, -factor));
+	}
+	if (state.isKeyDown(DIK_S))
+	{
+		m_camera.UpdatePosition(XMFLOAT3(0, 0, factor));
+	}
+	if (state.isKeyDown(DIK_A))
+	{
+		m_camera.UpdatePosition(XMFLOAT3(factor, 0, 0));
+	}
+	if (state.isKeyDown(DIK_D))
+	{
+		m_camera.UpdatePosition(XMFLOAT3(-factor, 0, 0));
+}
+	if (state.isKeyDown(DIK_Z))
+	{
+		m_camera.UpdatePosition(XMFLOAT3(0, -factor, 0));
+	}
+	if (state.isKeyDown(DIK_X))
+	{
+		m_camera.UpdatePosition(XMFLOAT3(0, factor, 0));
+	}
+}
+
 void Puma::Update(float dt)
 {
+	UpdateInput();
 	static MouseState prevState;
 	MouseState currentState;
 	if (!m_mouse->GetState(currentState))
@@ -577,17 +616,17 @@ void Puma::Update(float dt)
 	if (prevState.isButtonDown(0))
 	{
 		POINT d = currentState.getMousePositionChange();
-		m_camera.Rotate(d.y / 300.f, d.x / 300.f);
+		m_camera.RotateVertically(d.y / 300.f);
 	}
 	else if (prevState.isButtonDown(1))
 	{
 		POINT d = currentState.getMousePositionChange();
-		m_camera.Zoom(d.y / 10.0f);
+		m_camera.RotateHorizontally(d.x / 300.f);
 	}
 	else
 		change = false;
 	prevState = currentState;
-	if (change)
+	//if (change)
 		UpdateCamera(m_camera.GetViewMatrix());
 	UpdatePuma(dt);
 }

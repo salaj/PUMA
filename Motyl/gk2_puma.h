@@ -16,7 +16,7 @@ namespace gk2
 		virtual ~Puma();
 		static void* operator new(size_t size);
 		static void operator delete(void* ptr);
-	protected: 
+	protected:
 		virtual bool LoadContent();
 		virtual void UnloadContent();
 
@@ -93,6 +93,7 @@ namespace gk2
 
 		void UpdateCamera(const XMMATRIX& view);
 		void UpdatePuma(float dt);
+		void UpdateInput();
 
 		void SetShaders();
 		void SetConstantBuffers();
