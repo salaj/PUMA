@@ -88,6 +88,35 @@ void Puma::InitializeConstantBuffers()
 void Puma::InitializeRenderStates()
 {
 	D3D11_DEPTH_STENCIL_DESC dssDesc = m_device.DefaultDepthStencilDesc();
+	dssDesc.StencilEnable = true;
+	dssDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+	dssDesc.BackFace.StencilFunc = D3D11_COMPARISON_NEVER;
+	dssDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+	dssDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
+	m_dssWrite = m_device.CreateDepthStencilState(dssDesc);
+
+	dssDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	dssDesc.FrontFace.StencilFunc = D3D11_COMPARISON_EQUAL;
+	dssDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	m_dssTest = m_device.CreateDepthStencilState(dssDesc);
+
+	D3D11_RASTERIZER_DESC rsDesc = m_device.DefaultRasterizerDesc();
+	rsDesc.FrontCounterClockwise = true;
+	m_rsCounterClockwise = m_device.CreateRasterizerState(rsDesc);
+
+	D3D11_BLEND_DESC bsDesc = m_device.DefaultBlendDesc();
+	bsDesc.RenderTarget[0].BlendEnable = true;
+	bsDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+	bsDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+	bsDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	bsDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	bsDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	bsDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	m_bsAlpha = m_device.CreateBlendState(bsDesc);
+	bsDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_COLOR;
+	bsDesc.RenderTarget[0].DestBlend = D3D11_BLEND_DEST_COLOR;
+	bsDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	m_bsAdd = m_device.CreateBlendState(bsDesc);
 }
 
 void Puma::InitializeCamera()
@@ -162,10 +191,10 @@ void Puma::InitializePlane()
 	float sizeZ = 2.0f;
 	VertexPosNormal vertices[] =
 	{
-		{ XMFLOAT3(-0.5f, -1.0f, -sizeZ), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(-0.5f, -1.0f, sizeZ), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(-0.5f - (size / 2.0f) * sqrt(3), (size / 2.0f) - 1.0f, -sizeZ), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(-0.5f - (size / 2.0f) * sqrt(3), (size / 2.0f) - 1.0f, sizeZ), XMFLOAT3(1.0f, 0.0f, 0.0f) }
+		{ XMFLOAT3(-0.9f, -1.0f, -sizeZ), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(-0.9f, -1.0f, sizeZ), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(-0.9f - (size / 2.0f), (size / 2.0f)* sqrt(3) - 1.0f, -sizeZ), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(-0.9f - (size / 2.0f), (size / 2.0f)* sqrt(3) - 1.0f, sizeZ), XMFLOAT3(1.0f, 0.0f, 0.0f) }
 	};
 	m_vbPlane = m_device.CreateVertexBuffer(vertices, 8);
 	unsigned short indices[] =
@@ -221,6 +250,7 @@ void Puma::InitializePuma()
 		m_vbPuma[i] = m_device.CreateVertexBuffer(&vertices[i][0], differentVertexCount);
 		m_ibPuma[i] = m_device.CreateIndexBuffer(&indices[0], 3 * trianglesCount);
 		pumaIndicesCount[i] = 3 * trianglesCount;
+		m_pumaMtx[i] = XMMatrixIdentity();
 	}
 }
 
@@ -228,7 +258,7 @@ void Puma::InitializeCircle()
 {
 	//ilosc punktow przyblizaj¹cych okrag
 	int verticesAmount = 360;
-	VertexPosNormal* vertices = new VertexPosNormal[verticesAmount];
+	circleVertices = new VertexPosNormal[verticesAmount];
 
 	//k¹t o jaki bêd¹ obracane punkty
 	float delta = XM_2PI / (float)verticesAmount;
@@ -244,14 +274,14 @@ void Puma::InitializeCircle()
 			0));
 
 		pos = XMVector3Transform(pos, XMMatrixRotationY(XM_PIDIV2));
-		pos = XMVector3Transform(pos, XMMatrixRotationZ(XM_PI / 3.0f));
+		pos = XMVector3Transform(pos, XMMatrixRotationZ(XM_PI / 6.0f));
 		pos = XMVector3Transform(pos, XMMatrixTranslation(circleCenter.x, circleCenter.y, 0.0f));
 	
-		vertices[t].Pos = XMFLOAT3(XMVectorGetX(pos), XMVectorGetY(pos), XMVectorGetZ(pos));
-		vertices[t].Normal = XMFLOAT3(0.5f, sqrt(3) / 2.0f, 0.0f);
+		circleVertices[t].Pos = XMFLOAT3(XMVectorGetX(pos), XMVectorGetY(pos), XMVectorGetZ(pos));
+		circleVertices[t].Normal = XMFLOAT3(0.5f, sqrt(3) / 2.0f, 0.0f);
 	}
 
-	m_vbCircle = m_device.CreateVertexBuffer(vertices, verticesAmount);
+	m_vbCircle = m_device.CreateVertexBuffer(circleVertices, verticesAmount);
 
 	int indicesAmount = verticesAmount * 2;
 	unsigned short* indices = new unsigned short[indicesAmount];
@@ -266,7 +296,7 @@ void Puma::InitializeCircle()
 
 	m_ibCircle = m_device.CreateIndexBuffer(indices, indicesAmount);
 
-	delete[] vertices;
+	//delete[] vertices;
 }
 
 void Puma::SetShaders()
@@ -363,11 +393,14 @@ void Puma::DrawRoom()
 	m_context->DrawIndexed(36, 0, 0);
 }
 
-void Puma::DrawPlane()
+void Puma::DrawPlane(bool val)
 {
 	const XMMATRIX worldMtx = XMMatrixIdentity();
 	m_context->UpdateSubresource(m_cbWorld.get(), 0, 0, &worldMtx, 0, 0);
-
+	if (val)
+	{
+		m_context->UpdateSubresource(m_cbSurfaceColor.get(), 0, 0, &XMFLOAT4(1, 1, 1, 0.5f), 0, 0);
+	}
 	ID3D11Buffer* b = m_vbPlane.get();
 	m_context->IASetVertexBuffers(0, 1, &b, &VB_STRIDE, &VB_OFFSET);
 	m_context->IASetIndexBuffer(m_ibPlane.get(), DXGI_FORMAT_R16_UINT, 0);
@@ -377,7 +410,7 @@ void Puma::DrawPuma()
 {
 	for (int i = 0; i < 6; i++)
 	{
-		const XMMATRIX worldMtx = XMMatrixIdentity();
+		const XMMATRIX worldMtx = m_pumaMtx[i];
 		m_context->UpdateSubresource(m_cbWorld.get(), 0, 0, &worldMtx, 0, 0);
 
 		ID3D11Buffer* b = m_vbPuma[i].get();
@@ -397,6 +430,49 @@ void Puma::DrawCircle()
 	m_context->IASetIndexBuffer(m_ibCircle.get(), DXGI_FORMAT_R16_UINT, 0);
 	m_context->DrawIndexed(720, 0, 0);
 	m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+}
+
+void Puma::DrawMirroredWorld()
+{
+	//Setup render state for writing to the stencil buffer
+	m_context->OMSetDepthStencilState(m_dssWrite.get(), 1);
+	//Draw the i-th face
+	m_context->UpdateSubresource(m_cbWorld.get(), 0, 0, &XMMatrixIdentity(), 0, 0);
+	ID3D11Buffer* b = m_vbPlane.get();
+	m_context->IASetVertexBuffers(0, 1, &b, &VB_STRIDE, &VB_OFFSET);
+	m_context->IASetIndexBuffer(m_ibPlane.get(), DXGI_FORMAT_R16_UINT, 0);
+	m_context->DrawIndexed(12, 0, 0);
+
+	//Setup render state and view matrix for rendering the mirrored world
+	m_context->OMSetDepthStencilState(m_dssTest.get(), 1);
+
+
+	XMMATRIX scale = XMMatrixScaling(1, 1, -1);
+	XMVECTOR det;
+	XMMATRIX m_mirrorMtx;
+	XMMATRIX m = XMMatrixRotationY(XM_PIDIV2) * XMMatrixRotationZ(XM_PI / 6) * XMMatrixTranslation(-1.48, 0, 0);// *XMMatrixRotationZ(-XM_PI / 6);
+	for (int i = 0; i < 12; ++i)
+		m_mirrorMtx = XMMatrixInverse(&det,
+		m)
+		* scale *
+		m;
+
+	XMMATRIX viewMtx;
+	m_camera.GetViewMatrix(viewMtx);
+	XMMATRIX mirrorViewMtx = XMMatrixMultiply(m_mirrorMtx, viewMtx);
+	UpdateCamera(mirrorViewMtx);
+	m_context->RSSetState(m_rsCounterClockwise.get());
+
+	SetLight0();
+	DrawRoom();
+	//DrawPlane(true);
+	DrawPuma();
+	DrawCircle();
+	m_context->RSSetState(NULL);
+
+	//Restore rendering state to it's original values
+	UpdateCamera(viewMtx);
+	m_context->OMSetDepthStencilState(NULL, 0);
 }
 
 void Puma::inverse_kinematics(XMFLOAT3 pos, XMFLOAT3 normal, float &a1, float &a2,
@@ -432,6 +508,7 @@ void Puma::inverse_kinematics(XMFLOAT3 pos, XMFLOAT3 normal, float &a1, float &a
 
 void Puma::UpdatePuma(float dt)
 {
+	static float counter = 0;
 	static float lap = 0.0f;
 	lap += dt;
 	while (lap > LAP_TIME)
@@ -439,144 +516,52 @@ void Puma::UpdatePuma(float dt)
 	float t = 2 * lap / LAP_TIME;
 	t *= XM_2PI;
 
-	XMMATRIX posMatrix = XMMatrixTranslation(-0.5f - 1.5f / 2.0f * sqrt(3), -0.25f, 0.0f) * XMMatrixRotationZ(XM_PI / 3.0f) * XMMATRIX(0.0f, 0, 0, 0,
-		0.5f * cos(t), 0, 0, 0,
-		0.5f * sin(t), 0, 0, 0,
-		1.0f, 0, 0, 0);
-
 	XMVECTOR pos = XMLoadFloat3(
 		&XMFLOAT3(
 		circleRadius * cos(t),
 		circleRadius * sin(t),
 		0));
-
 	pos = XMVector3Transform(pos, XMMatrixRotationY(XM_PIDIV2));
-	pos = XMVector3Transform(pos, XMMatrixRotationZ(XM_PI / 3.0f));
+	pos = XMVector3Transform(pos, XMMatrixRotationZ(XM_PI / 6.0f));
 	pos = XMVector3Transform(pos, XMMatrixTranslation(circleCenter.x, circleCenter.y, 0.0f));
-
-	XMFLOAT3 norm = XMFLOAT3(0.5f, sqrtf(3) / 2.0f, 0.0f);
+	XMFLOAT3 norm = XMFLOAT3(sqrtf(3) / 2.0f, 0.5f, 0.0f);
 
 	float a1, a2, a3, a4, a5;
 	XMFLOAT3 p = XMFLOAT3(
 		XMVectorGetX(pos),
 		XMVectorGetY(pos),
 		XMVectorGetZ(pos));
+	p = circleVertices[((int)counter) % 360].Pos;
+	counter+=0.1f;
 	inverse_kinematics(p, norm, a1, a2, a3, a4, a5);
 	//a1 = 0;
 	vector<VertexPosNormal> newVertices[6];
 	for (int i = 1; i < 6; i++)
 	{
+		XMMATRIX tr;
 		switch (i)
 		{
 		case 1:
-			for (int j = 0; j < vertices[i].size(); j++)
-			{
-				pos = XMLoadFloat3(&XMFLOAT3(vertices[i][j].Pos.x, vertices[i][j].Pos.y, vertices[i][j].Pos.z));
-				pos = XMVector3Transform(pos, XMMatrixRotationY(a1));
-				VertexPosNormal v;
-				v.Pos = XMFLOAT3(
-					XMVectorGetX(pos),
-					XMVectorGetY(pos),
-					XMVectorGetZ(pos));
-				v.Normal = vertices[i][j].Normal;
-				newVertices[i].push_back(v);
-			}
-			m_vbPuma[i] = m_device.CreateVertexBuffer(&newVertices[i][0], newVertices[i].size());
+			m_pumaMtx[i] = XMMatrixRotationY(a1);
 			break;
 		case 2:
-			for (int j = 0; j < vertices[i].size(); j++)
-			{
-				pos = XMLoadFloat3(&XMFLOAT3(vertices[i][j].Pos.x, vertices[i][j].Pos.y, vertices[i][j].Pos.z));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(0, -0.27f, 0));
-				pos = XMVector3Transform(pos, XMMatrixRotationZ(a2));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(0, 0.27f, 0));
-				pos = XMVector3Transform(pos, XMMatrixRotationY(a1));
-				VertexPosNormal v;
-				v.Pos = XMFLOAT3(
-					XMVectorGetX(pos),
-					XMVectorGetY(pos),
-					XMVectorGetZ(pos));
-				v.Normal = vertices[i][j].Normal;
-				newVertices[i].push_back(v);
-
-			}
-			m_vbPuma[i] = m_device.CreateVertexBuffer(&newVertices[i][0], newVertices[i].size());
+			m_pumaMtx[i] = XMMatrixTranslation(0, -0.27f, 0) * XMMatrixRotationZ(a2) * XMMatrixTranslation(0, 0.27f, 0) * XMMatrixRotationY(a1);
 			break;
-
 		case 3:
-			for (int j = 0; j < vertices[i].size(); j++)
-			{
-				pos = XMLoadFloat3(&XMFLOAT3(vertices[i][j].Pos.x, vertices[i][j].Pos.y, vertices[i][j].Pos.z));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(0, -0.27f, 0));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(0.91f, 0, 0));
-				pos = XMVector3Transform(pos, XMMatrixRotationZ(a3));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(-0.91f, 0, 0));
-				pos = XMVector3Transform(pos, XMMatrixRotationZ(a2));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(0, 0.27f, 0));
-				pos = XMVector3Transform(pos, XMMatrixRotationY(a1));
-				VertexPosNormal v;
-				v.Pos = XMFLOAT3(
-					XMVectorGetX(pos),
-					XMVectorGetY(pos),
-					XMVectorGetZ(pos));
-				v.Normal = vertices[i][j].Normal;
-				newVertices[i].push_back(v);
-			}
-			m_vbPuma[i] = m_device.CreateVertexBuffer(&newVertices[i][0], newVertices[i].size());
+			m_pumaMtx[i] = XMMatrixTranslation(0, -0.27f, 0) *XMMatrixTranslation(0.91f, 0, 0) * XMMatrixRotationZ(a3) *
+				XMMatrixTranslation(-0.91f, 0, 0)  * XMMatrixRotationZ(a2) *XMMatrixTranslation(0, 0.27f, 0) * XMMatrixRotationY(a1);
 			break;
-
-
 		case 4:
-			for (int j = 0; j < vertices[i].size(); j++)
-			{
-				pos = XMLoadFloat3(&XMFLOAT3(vertices[i][j].Pos.x, vertices[i][j].Pos.y, vertices[i][j].Pos.z));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(0, -0.27f, 0));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(0, 0, 0.26f));
-				pos = XMVector3Transform(pos, XMMatrixRotationX(a4));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(0, 0, -0.26f));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(+0.91f, 0, 0));
-				pos = XMVector3Transform(pos, XMMatrixRotationZ(a3));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(-0.91f, 0, 0));
-				pos = XMVector3Transform(pos, XMMatrixRotationZ(a2));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(0, 0.27f, 0));
-				pos = XMVector3Transform(pos, XMMatrixRotationY(a1));
-				VertexPosNormal v;
-				v.Pos = XMFLOAT3(
-					XMVectorGetX(pos),
-					XMVectorGetY(pos),
-					XMVectorGetZ(pos));
-				v.Normal = vertices[i][j].Normal;
-				newVertices[i].push_back(v);
-			}
-			m_vbPuma[i] = m_device.CreateVertexBuffer(&newVertices[i][0], newVertices[i].size());
+			m_pumaMtx[i] = XMMatrixTranslation(0, -0.27f, 0) *
+				XMMatrixTranslation(0, 0, 0.26f) *XMMatrixRotationX(a4) * XMMatrixTranslation(0, 0, -0.26f) *XMMatrixTranslation(+0.91f, 0, 0)
+				*XMMatrixRotationZ(a3) * XMMatrixTranslation(-0.91f, 0, 0) *XMMatrixRotationZ(a2) *XMMatrixTranslation(0, 0.27f, 0) *
+				XMMatrixRotationY(a1);
 			break;
-
 		case 5:
-			for (int j = 0; j < vertices[i].size(); j++)
-			{
-				pos = XMLoadFloat3(&XMFLOAT3(vertices[i][j].Pos.x, vertices[i][j].Pos.y, vertices[i][j].Pos.z));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(0, -0.27f, 0));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(1.72f, 0, 0));
-				pos = XMVector3Transform(pos, XMMatrixRotationZ(a5));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(-1.72f, 0, 0));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(0, 0, 0.26f));
-				pos = XMVector3Transform(pos, XMMatrixRotationX(a4));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(0, 0, -0.26f));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(+0.91f, 0, 0));
-				pos = XMVector3Transform(pos, XMMatrixRotationZ(a3));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(-0.91f, 0, 0));
-				pos = XMVector3Transform(pos, XMMatrixRotationZ(a2));
-				pos = XMVector3Transform(pos, XMMatrixTranslation(0, 0.27f, 0));
-				pos = XMVector3Transform(pos, XMMatrixRotationY(a1));
-				VertexPosNormal v;
-				v.Pos = XMFLOAT3(
-					XMVectorGetX(pos),
-					XMVectorGetY(pos),
-					XMVectorGetZ(pos));
-				v.Normal = vertices[i][j].Normal;
-				newVertices[i].push_back(v);
-			}
-			m_vbPuma[i] = m_device.CreateVertexBuffer(&newVertices[i][0], newVertices[i].size());
+			m_pumaMtx[i] = XMMatrixTranslation(0, -0.27f, 0)* XMMatrixTranslation(1.72f, 0, 0) *XMMatrixRotationZ(a5 ) * XMMatrixTranslation(-1.72f, 0, 0) *
+				XMMatrixTranslation(0, 0, 0.26f) * XMMatrixRotationX(a4) *XMMatrixTranslation(0, 0, -0.26f) * XMMatrixTranslation(+0.91f, 0, 0) 
+				*	XMMatrixRotationZ(a3)* XMMatrixTranslation(-0.91f, 0, 0) *XMMatrixRotationZ(a2)* 
+				XMMatrixTranslation(0, 0.27f, 0) *XMMatrixRotationY(a1);
 			break;
 		}
 	}
@@ -618,9 +603,16 @@ void Puma::Render()
 	m_context->ClearDepthStencilView(m_depthStencilView.get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 
+	DrawMirroredWorld();
+	m_context->OMSetBlendState(m_bsAlpha.get(), 0, BS_MASK);
+
+	SetLight0();
+	DrawPlane();
+	m_context->OMSetBlendState(0, 0, BS_MASK);
+
+
 	SetLight0();
 	DrawRoom();
-	DrawPlane();
 	DrawPuma();
 	DrawCircle();
 

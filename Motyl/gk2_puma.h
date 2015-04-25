@@ -16,7 +16,7 @@ namespace gk2
 		virtual ~Puma();
 		static void* operator new(size_t size);
 		static void operator delete(void* ptr);
-	protected:
+	protected: 
 		virtual bool LoadContent();
 		virtual void UnloadContent();
 
@@ -33,6 +33,8 @@ namespace gk2
 		gk2::Camera m_camera;
 
 		XMMATRIX m_projMtx;
+		XMMATRIX m_pumaMtx[6];
+
 		std::shared_ptr<ID3D11VertexShader> m_vertexShader;
 		std::shared_ptr<ID3D11PixelShader> m_pixelShader;
 		std::shared_ptr<ID3D11InputLayout> m_inputLayout;
@@ -50,13 +52,19 @@ namespace gk2
 		vector<VertexPosNormal> vertices[6];
 		int pumaIndicesCount[6];
 
+		std::shared_ptr<ID3D11DepthStencilState> m_dssWrite;
+		std::shared_ptr<ID3D11DepthStencilState> m_dssTest;
+		std::shared_ptr<ID3D11RasterizerState> m_rsCounterClockwise;
+		std::shared_ptr<ID3D11BlendState> m_bsAlpha;
+		std::shared_ptr<ID3D11BlendState> m_bsAdd;
 
 		//dane okrêgu
-		XMFLOAT2 circleCenter = XMFLOAT2(-0.5f - 1.5f / 2.0f * sqrt(3), -0.25f);
+		XMFLOAT2 circleCenter = XMFLOAT2(-0.9f - 1.3f / 2.0f, -1.0f + 1.3f / 2.0f* sqrt(3));
 		float circleRadius = 0.5f;
 
 		std::shared_ptr<ID3D11Buffer> m_vbCircle;
 		std::shared_ptr<ID3D11Buffer> m_ibCircle;
+		VertexPosNormal *circleVertices;
 
 		void inverse_kinematics(XMFLOAT3 pos, XMFLOAT3 normal, float &a1, float &a2,
 			float &a3, float &a4, float &a5);
@@ -93,9 +101,10 @@ namespace gk2
 
 
 		void DrawRoom();
-		void DrawPlane();
+		void DrawPlane(bool val = false);
 		void DrawPuma();
 		void DrawCircle();
+		void DrawMirroredWorld();
 	};
 }
 
