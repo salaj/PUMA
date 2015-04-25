@@ -6,6 +6,7 @@ Camera::Camera(float minDistance, float maxDistance, float distance)
 	: m_angleX(0.0f), m_angleY(0.0f), m_distance(distance)
 {
 	SetRange(minDistance, maxDistance);
+	m_position = XMFLOAT3(0, 0, 10);
 }
 
 void Camera::ClampDistance()
@@ -39,6 +40,32 @@ void Camera::Rotate(float dx, float dy)
 	m_angleY = XMScalarModAngle(m_angleY + dy);
 }
 
+void Camera::RotateHorizontally(float dy)
+{
+	float val = m_angleY + dy;
+	float clamped;
+	if (val < -XM_PI)
+		clamped = -XM_PI;
+	else if (val > XM_PI)
+		clamped = XM_PI;
+	else
+		clamped = val;
+	m_angleY = clamped;
+}
+
+void Camera::RotateVertically(float dx)
+{
+	float val = m_angleX + dx;
+	float clamped;
+	if (val < -XM_PIDIV2)
+		clamped = -XM_PIDIV2;
+	else if (val > XM_PIDIV2)
+		clamped = XM_PIDIV2;
+	else
+		clamped = val;
+	m_angleX = clamped;
+}
+
 XMMATRIX Camera::GetViewMatrix()
 {
 	XMMATRIX viewMtx;
@@ -48,7 +75,15 @@ XMMATRIX Camera::GetViewMatrix()
 
 void Camera::GetViewMatrix(XMMATRIX& viewMtx)
 {
-	viewMtx = XMMatrixRotationX(m_angleX) * XMMatrixRotationY(-m_angleY) * XMMatrixTranslation(0.0f, 0.0f, m_distance);
+	viewMtx = XMMatrixRotationX(m_angleX) * XMMatrixRotationY(-m_angleY) *
+		XMMatrixTranslation(m_position.x, m_position.y, m_position.z);
+}
+
+void Camera::UpdatePosition(XMFLOAT3& offset)
+{
+	m_position.x += offset.x;
+	m_position.y += offset.y;
+	m_position.z += offset.z;
 }
 
 XMFLOAT4 Camera::GetPosition()

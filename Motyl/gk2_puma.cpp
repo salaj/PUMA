@@ -162,10 +162,10 @@ void Puma::InitializePlane()
 	float sizeZ = 2.0f;
 	VertexPosNormal vertices[] =
 	{
-		{ XMFLOAT3(-0.5f, -1.0f, -sizeZ), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(-0.5f, -1.0f, sizeZ), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(-0.5f - (size / 2.0f) * sqrt(3), (size / 2.0f) - 1.0f, -sizeZ), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(-0.5f - (size / 2.0f) * sqrt(3), (size / 2.0f) - 1.0f, sizeZ), XMFLOAT3(1.0f, 0.0f, 0.0f) }
+		{ XMFLOAT3(-0.0f, -1.0f, -sizeZ), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(-0.0f, -1.0f, sizeZ), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(-0.0f - (size / 2.0f) * sqrt(3), (size / 2.0f) - 1.0f, -sizeZ), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(-0.0f - (size / 2.0f) * sqrt(3), (size / 2.0f) - 1.0f, sizeZ), XMFLOAT3(1.0f, 0.0f, 0.0f) }
 	};
 	m_vbPlane = m_device.CreateVertexBuffer(vertices, 8);
 	unsigned short indices[] =
@@ -242,13 +242,14 @@ void Puma::InitializeCircle()
 			circleRadius * cos(t * delta),
 			circleRadius * sin(t * delta),
 			0));
+		float angle = XM_PI / 3.0f;
 
 		pos = XMVector3Transform(pos, XMMatrixRotationY(XM_PIDIV2));
 		pos = XMVector3Transform(pos, XMMatrixRotationZ(XM_PI / 3.0f));
 		pos = XMVector3Transform(pos, XMMatrixTranslation(circleCenter.x, circleCenter.y, 0.0f));
 	
 		vertices[t].Pos = XMFLOAT3(XMVectorGetX(pos), XMVectorGetY(pos), XMVectorGetZ(pos));
-		vertices[t].Normal = XMFLOAT3(0.5f, sqrt(3) / 2.0f, 0.0f);
+		vertices[t].Normal = XMFLOAT3(0.0f, sqrt(3) / 2.0f, 0.0f);
 	}
 
 	m_vbCircle = m_device.CreateVertexBuffer(vertices, verticesAmount);
@@ -404,6 +405,12 @@ void Puma::inverse_kinematics(XMFLOAT3 pos, XMFLOAT3 normal, float &a1, float &a
 {
 	float l1 = .91f, l2 = .81f, l3 = .33f, dy = .27f, dz = .26f;
 
+	float len = sqrtf( normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
+
+	normal.x /= len;
+	normal.y /= len;
+	normal.z /= len;
+
 	float normalizationFactor = sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
 	normal = XMFLOAT3(normal.x / normalizationFactor, normal.y / normalizationFactor, normal.z / normalizationFactor);
 	XMFLOAT3 pos1 = XMFLOAT3(pos.x + normal.x * l3, pos.y + normal.y * l3, pos.z + normal.z * l3);
@@ -439,10 +446,10 @@ void Puma::UpdatePuma(float dt)
 	float t = 2 * lap / LAP_TIME;
 	t *= XM_2PI;
 
-	XMMATRIX posMatrix = XMMatrixTranslation(-0.5f - 1.5f / 2.0f * sqrt(3), -0.25f, 0.0f) * XMMatrixRotationZ(XM_PI / 3.0f) * XMMATRIX(0.0f, 0, 0, 0,
-		0.5f * cos(t), 0, 0, 0,
-		0.5f * sin(t), 0, 0, 0,
-		1.0f, 0, 0, 0);
+	//XMMATRIX posMatrix = XMMatrixTranslation(-0.5f - 1.5f / 2.0f * sqrt(3), -0.25f, 0.0f) * XMMatrixRotationZ(XM_PI / 3.0f) * XMMATRIX(0.0f, 0, 0, 0,
+	//	0.5f * cos(t), 0, 0, 0,
+	//	0.5f * sin(t), 0, 0, 0,
+	//	1.0f, 0, 0, 0);
 
 	XMVECTOR pos = XMLoadFloat3(
 		&XMFLOAT3(
@@ -454,7 +461,7 @@ void Puma::UpdatePuma(float dt)
 	pos = XMVector3Transform(pos, XMMatrixRotationZ(XM_PI / 3.0f));
 	pos = XMVector3Transform(pos, XMMatrixTranslation(circleCenter.x, circleCenter.y, 0.0f));
 
-	XMFLOAT3 norm = XMFLOAT3(0.5f, sqrtf(3) / 2.0f, 0.0f);
+	XMFLOAT3 norm = XMFLOAT3(0.0f, sqrtf(3) / 2.0f, 0.0f);
 
 	float a1, a2, a3, a4, a5;
 	XMFLOAT3 p = XMFLOAT3(
@@ -582,8 +589,41 @@ void Puma::UpdatePuma(float dt)
 	}
 }
 
+void Puma::UpdateInput()
+{
+	static KeyboardState state;
+	if (!m_keyboard->GetState(state))
+		return;
+	float factor = 0.1f;
+	if (state.isKeyDown(DIK_W))
+	{
+		m_camera.UpdatePosition(XMFLOAT3(0, 0, -factor));
+	}
+	if (state.isKeyDown(DIK_S))
+	{
+		m_camera.UpdatePosition(XMFLOAT3(0, 0, factor));
+	}
+	if (state.isKeyDown(DIK_A))
+	{
+		m_camera.UpdatePosition(XMFLOAT3(factor, 0, 0));
+	}
+	if (state.isKeyDown(DIK_D))
+	{
+		m_camera.UpdatePosition(XMFLOAT3(-factor, 0, 0));
+	}
+	if (state.isKeyDown(DIK_Z))
+	{
+		m_camera.UpdatePosition(XMFLOAT3(0, -factor, 0));
+	}
+	if (state.isKeyDown(DIK_X))
+	{
+		m_camera.UpdatePosition(XMFLOAT3(0, factor, 0));
+	}
+}
+
 void Puma::Update(float dt)
 {
+	UpdateInput();
 	static MouseState prevState;
 	MouseState currentState;
 	if (!m_mouse->GetState(currentState))
@@ -592,17 +632,17 @@ void Puma::Update(float dt)
 	if (prevState.isButtonDown(0))
 	{
 		POINT d = currentState.getMousePositionChange();
-		m_camera.Rotate(d.y / 300.f, d.x / 300.f);
+		m_camera.RotateVertically(d.y / 300.f);
 	}
 	else if (prevState.isButtonDown(1))
 	{
 		POINT d = currentState.getMousePositionChange();
-		m_camera.Zoom(d.y / 10.0f);
+		m_camera.RotateHorizontally(d.x / 300.f);
 	}
 	else
 		change = false;
 	prevState = currentState;
-	if (change)
+	//if (change)
 		UpdateCamera(m_camera.GetViewMatrix());
 	UpdatePuma(dt);
 }

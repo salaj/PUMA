@@ -14,9 +14,12 @@ namespace gk2
 		void SetRange(float minDistance, float maxDistance);
 		void Zoom(float d);
 		void Rotate(float dx, float dy);
+		void RotateHorizontally(float dx);
+		void RotateVertically(float dy);
 		XMMATRIX GetViewMatrix();
 		void GetViewMatrix(XMMATRIX& viewMatrix);
 		XMFLOAT4 GetPosition();
+		void UpdatePosition(XMFLOAT3&);
 
 	private:
 		float m_angleX;
@@ -24,6 +27,7 @@ namespace gk2
 		float m_distance;
 		float m_minDistance;
 		float m_maxDistance;
+		XMFLOAT3 m_position;
 
 		void ClampDistance();
 	};

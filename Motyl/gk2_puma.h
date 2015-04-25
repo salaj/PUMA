@@ -52,7 +52,7 @@ namespace gk2
 
 
 		//dane okrêgu
-		XMFLOAT2 circleCenter = XMFLOAT2(-0.5f - 1.5f / 2.0f * sqrt(3), -0.25f);
+		XMFLOAT2 circleCenter = XMFLOAT2(-0.0f - 1.5f / 2.0f * sqrt(3), -0.25f);
 		float circleRadius = 0.5f;
 
 		std::shared_ptr<ID3D11Buffer> m_vbCircle;
@@ -85,6 +85,7 @@ namespace gk2
 
 		void UpdateCamera(const XMMATRIX& view);
 		void UpdatePuma(float dt);
+		void UpdateInput();
 
 		void SetShaders();
 		void SetConstantBuffers();
