@@ -18,7 +18,7 @@ namespace gk2
 		virtual ~ApplicationBase();
 
 		int Run(gk2::Window* window, int cmdShow);
-		
+
 		inline HINSTANCE getHandle() const { return m_hInstance; }
 		inline gk2::Window* getMainWindow() const { return m_mainWindow; }
 
@@ -32,12 +32,15 @@ namespace gk2
 		virtual void Update(float dt) = 0;
 		virtual void Render() = 0;
 
+		void ResetRenderTarget();
+
 		D3D_DRIVER_TYPE m_driverType;
 		D3D_FEATURE_LEVEL m_featureLevel;
 
 		gk2::DeviceHelper m_device;
 		std::shared_ptr<ID3D11DeviceContext> m_context;
 		std::shared_ptr<IDXGISwapChain> m_swapChain;
+		std::shared_ptr<ID3D11Texture2D> m_backBufferTexture;
 		std::shared_ptr<ID3D11RenderTargetView> m_backBuffer;
 		std::shared_ptr<ID3D11Texture2D> m_depthStencilTexture;
 		std::shared_ptr<ID3D11DepthStencilView> m_depthStencilView;

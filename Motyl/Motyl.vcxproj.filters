@@ -48,6 +48,15 @@
     <ClCompile Include="gk2_puma.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="gk2_lightShadowEffect.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="gk2_effectBase.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="gk2_constantBuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gk2_applicationBase.h">
@@ -80,6 +89,15 @@
     <ClInclude Include="gk2_puma.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="gk2_lightShadowEffect.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="gk2_effectBase.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="gk2_constantBuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="resources\shaders\Butterfly.hlsl">
@@ -88,5 +106,10 @@
     <None Include="resources\shaders\Puma.hlsl">
       <Filter>Resource Files</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="resources\shaders\LightShadow.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

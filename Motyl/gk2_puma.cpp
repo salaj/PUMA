@@ -73,16 +73,20 @@ void Puma::InitializeConstantBuffers()
 	desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	desc.ByteWidth = sizeof(XMMATRIX);
 	desc.Usage = D3D11_USAGE_DEFAULT;
-	m_cbWorld = m_device.CreateBuffer(desc);
-	m_cbProj = m_device.CreateBuffer(desc);
+	m_cbWorld.reset(new CBMatrix(m_device));
+	m_cbProj.reset(new CBMatrix(m_device));
 	desc.ByteWidth = sizeof(XMMATRIX) * 2;
-	m_cbView = m_device.CreateBuffer(desc);
+	m_cbView.reset(new CBMatrix(m_device));
 	desc.ByteWidth = sizeof(XMFLOAT4) * 3;
 	m_cbLightPos = m_device.CreateBuffer(desc);
 	desc.ByteWidth = sizeof(XMFLOAT4) * 5;
 	m_cbLightColors = m_device.CreateBuffer(desc);
 	desc.ByteWidth = sizeof(XMFLOAT4);
 	m_cbSurfaceColor = m_device.CreateBuffer(desc);
+
+	m_lightPosCB.reset(new ConstantBuffer<XMFLOAT4>(m_device));
+	m_surfaceColorCB.reset(new ConstantBuffer<XMFLOAT4>(m_device));
+	m_cameraPosCB.reset(new ConstantBuffer<XMFLOAT4>(m_device));
 }
 
 void Puma::InitializeRenderStates()
@@ -124,10 +128,14 @@ void Puma::InitializeCamera()
 	SIZE s = getMainWindow()->getClientSize();
 	float ar = static_cast<float>(s.cx) / s.cy;
 	m_projMtx = XMMatrixPerspectiveFovLH(XM_PIDIV4, ar, 0.01f, 100.0f);
-	m_context->UpdateSubresource(m_cbProj.get(), 0, 0, &m_projMtx, 0, 0);
+	m_cbProj->Update(m_context, m_projMtx);
 	m_camera.Zoom(7);
 
 	UpdateCamera(m_camera.GetViewMatrix());
+	//XMMATRIX view;
+	//m_camera.GetViewMatrix(view);
+	//m_cbView->Update(m_context, view);
+	//m_cameraPosCB->Update(m_context, m_camera.GetPosition());
 }
 
 
@@ -183,6 +191,16 @@ void Puma::InitializeRoom()
 		20, 21, 22, 20, 22, 23	//Top face
 	};
 	m_ibRoom = m_device.CreateIndexBuffer(indices, 36);
+}
+void Puma::InitializeShadowEffects()
+{
+	m_lightShadowEffect.reset(new LightShadowEffect(m_device, m_layout));
+	m_lightShadowEffect->SetProjMtxBuffer(m_cbProj);
+	m_lightShadowEffect->SetViewMtxBuffer(m_cbView);
+	m_lightShadowEffect->SetWorldMtxBuffer(m_cbWorld);
+	m_lightShadowEffect->SetLightPosBuffer(m_lightPosCB);
+	m_lightShadowEffect->SetSurfaceColorBuffer(m_surfaceColorCB);
+	m_lightShadowEffect->UpdateLight(0.0f, m_context);
 }
 
 void Puma::InitializePlane()
@@ -309,7 +327,7 @@ void Puma::SetShaders()
 
 void Puma::SetConstantBuffers()
 {
-	ID3D11Buffer* vsb[] = { m_cbWorld.get(), m_cbView.get(), m_cbProj.get(), m_cbLightPos.get() };
+	ID3D11Buffer* vsb[] = { m_cbWorld->getBufferObject().get(), m_cbView->getBufferObject().get(), m_cbProj->getBufferObject().get(), m_cbLightPos.get() };
 	m_context->VSSetConstantBuffers(0, 4, vsb);
 	ID3D11Buffer* psb[] = { m_cbLightColors.get(), m_cbSurfaceColor.get() };
 	m_context->PSSetConstantBuffers(0, 2, psb);
@@ -326,6 +344,7 @@ bool Puma::LoadContent()
 	InitializePuma();
 	InitializePlane();
 	InitializeCircle();
+	InitializeShadowEffects();
 
 	SetShaders();
 	SetConstantBuffers();
@@ -359,7 +378,8 @@ void Puma::UpdateCamera(const XMMATRIX& view)
 	viewMtx[0] = view;
 	XMVECTOR det;
 	viewMtx[1] = XMMatrixInverse(&det, viewMtx[0]);
-	m_context->UpdateSubresource(m_cbView.get(), 0, 0, viewMtx, 0, 0);
+	//m_context->UpdateSubresource(m_cbView->getBufferObject().get(), 0, 0, viewMtx, 0, 0);
+	m_cbView->Update(m_context, view);
 }
 
 void Puma::SetLight0()
@@ -385,8 +405,7 @@ void Puma::SetLight0()
 void Puma::DrawRoom()
 {
 	const XMMATRIX worldMtx = XMMatrixIdentity();
-	m_context->UpdateSubresource(m_cbWorld.get(), 0, 0, &worldMtx, 0, 0);
-
+	m_cbWorld->Update(m_context, worldMtx);
 	ID3D11Buffer* b = m_vbRoom.get();
 	m_context->IASetVertexBuffers(0, 1, &b, &VB_STRIDE, &VB_OFFSET);
 	m_context->IASetIndexBuffer(m_ibRoom.get(), DXGI_FORMAT_R16_UINT, 0);
@@ -396,7 +415,7 @@ void Puma::DrawRoom()
 void Puma::DrawPlane(bool val)
 {
 	const XMMATRIX worldMtx = XMMatrixIdentity();
-	m_context->UpdateSubresource(m_cbWorld.get(), 0, 0, &worldMtx, 0, 0);
+	m_cbWorld->Update(m_context, worldMtx);
 	if (val)
 	{
 		m_context->UpdateSubresource(m_cbSurfaceColor.get(), 0, 0, &XMFLOAT4(1, 1, 1, 0.5f), 0, 0);
@@ -411,8 +430,7 @@ void Puma::DrawPuma()
 	for (int i = 0; i < 6; i++)
 	{
 		const XMMATRIX worldMtx = m_pumaMtx[i];
-		m_context->UpdateSubresource(m_cbWorld.get(), 0, 0, &worldMtx, 0, 0);
-
+		m_cbWorld->Update(m_context, worldMtx);
 		ID3D11Buffer* b = m_vbPuma[i].get();
 		m_context->IASetVertexBuffers(0, 1, &b, &VB_STRIDE, &VB_OFFSET);
 		m_context->IASetIndexBuffer(m_ibPuma[i].get(), DXGI_FORMAT_R16_UINT, 0);
@@ -423,8 +441,7 @@ void Puma::DrawCircle()
 {
 	m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
 	const XMMATRIX worldMtx = XMMatrixIdentity();
-	m_context->UpdateSubresource(m_cbWorld.get(), 0, 0, &worldMtx, 0, 0);
-
+	m_cbWorld->Update(m_context, worldMtx);
 	ID3D11Buffer* b = m_vbCircle.get();
 	m_context->IASetVertexBuffers(0, 1, &b, &VB_STRIDE, &VB_OFFSET);
 	m_context->IASetIndexBuffer(m_ibCircle.get(), DXGI_FORMAT_R16_UINT, 0);
@@ -437,7 +454,7 @@ void Puma::DrawMirroredWorld()
 	//Setup render state for writing to the stencil buffer
 	m_context->OMSetDepthStencilState(m_dssWrite.get(), 1);
 	//Draw the i-th face
-	m_context->UpdateSubresource(m_cbWorld.get(), 0, 0, &XMMatrixIdentity(), 0, 0);
+	m_cbWorld->Update(m_context, &XMMatrixIdentity());
 	ID3D11Buffer* b = m_vbPlane.get();
 	m_context->IASetVertexBuffers(0, 1, &b, &VB_STRIDE, &VB_OFFSET);
 	m_context->IASetIndexBuffer(m_ibPlane.get(), DXGI_FORMAT_R16_UINT, 0);
@@ -530,7 +547,7 @@ void Puma::UpdatePuma(float dt)
 	pos = XMVector3Transform(pos, XMMatrixRotationY(XM_PIDIV2));
 	pos = XMVector3Transform(pos, XMMatrixRotationZ(XM_PI / 6.0f));
 	pos = XMVector3Transform(pos, XMMatrixTranslation(circleCenter.x, circleCenter.y, 0.0f));
-	XMFLOAT3 norm = XMFLOAT3(sqrtf(3) / 2.0f, 0.5f, 0.0f);
+	XMFLOAT3 norm = XMFLOAT3(0.5f, sqrtf(3) / 2.0f, 0.0f);
 
 	float a1, a2, a3, a4, a5;
 	XMFLOAT3 p = XMFLOAT3(
@@ -626,17 +643,8 @@ void Puma::Update(float dt)
 	UpdatePuma(dt);
 }
 
-
-void Puma::Render()
+void Puma::DrawScene()
 {
-	if (m_context == nullptr)
-		return;
-
-	float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	m_context->ClearRenderTargetView(m_backBuffer.get(), clearColor);
-	m_context->ClearDepthStencilView(m_depthStencilView.get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-
-
 	DrawMirroredWorld();
 	m_context->OMSetBlendState(m_bsAlpha.get(), 0, BS_MASK);
 
@@ -649,6 +657,33 @@ void Puma::Render()
 	DrawRoom();
 	DrawPuma();
 	DrawCircle();
+}
+
+
+void Puma::Render()
+{
+	if (m_context == nullptr)
+		return;
+
+	m_lightShadowEffect->SetupShadow(m_context);
+	//m_phongEffect->Begin(m_context);
+	DrawScene();
+	//m_phongEffect->End();
+	//m_particles->Render(m_context);
+	m_lightShadowEffect->EndShadow();
+
+	ResetRenderTarget();
+	m_cbProj->Update(m_context, m_projMtx);
+	UpdateCamera(m_camera.GetViewMatrix());
+	//Clear buffers
+	float clearColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	m_context->ClearRenderTargetView(m_backBuffer.get(), clearColor);
+	m_context->ClearDepthStencilView(m_depthStencilView.get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+
+
+	m_lightShadowEffect->Begin(m_context);
+	DrawScene();
+	m_lightShadowEffect->End();
 
 	m_swapChain->Present(0, 0);
 }

@@ -6,7 +6,7 @@ using namespace gk2;
 
 ApplicationBase::ApplicationBase(HINSTANCE hInstance)
 	: m_hInstance(hInstance), m_mainWindow(0), m_featureLevel(D3D_FEATURE_LEVEL_11_0),
-	  m_driverType(D3D_DRIVER_TYPE_NULL)
+	m_driverType(D3D_DRIVER_TYPE_NULL)
 {
 
 }
@@ -62,7 +62,7 @@ void ApplicationBase::CreateDeviceAndSwapChain(SIZE windowSize)
 		IDXGISwapChain* swapChain = nullptr;
 		result = D3D11CreateDeviceAndSwapChain(0, driverTypes[driver], 0, creationFlags, featureLevels,
 			featureLevelsCout, D3D11_SDK_VERSION, &desc, &swapChain, &device, &m_featureLevel, &context);
-		m_device.m_deviceObject.reset(device, Utils::COMRelease);
+		m_device.setDeviceObject(shared_ptr<ID3D11Device>(device, Utils::COMRelease));
 		m_swapChain.reset(swapChain, Utils::COMRelease);
 		m_context.reset(context, Utils::COMRelease);
 		if (SUCCEEDED(result))
@@ -78,11 +78,12 @@ void ApplicationBase::CreateBackBuffers(SIZE windowSize)
 {
 	ID3D11Texture2D* bbt;
 	HRESULT result = m_swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&bbt);
-	shared_ptr<ID3D11Texture2D> backBufferTexture(bbt, Utils::COMRelease);
+	m_backBufferTexture.reset(bbt, Utils::COMRelease);
 	if (FAILED(result))
 		THROW_DX11(result);
-	m_backBuffer = m_device.CreateRenderTargetView(backBufferTexture);
-	backBufferTexture.reset();
+	m_backBuffer = m_device.CreateRenderTargetView(m_backBufferTexture);
+	D3D11_TEXTURE2D_DESC desc;
+	m_backBufferTexture->GetDesc(&desc);
 	m_depthStencilTexture = m_device.CreateDepthStencilTexture(windowSize);
 	m_depthStencilView = m_device.CreateDepthStencilView(m_depthStencilTexture);
 	ID3D11RenderTargetView* backBuffer = m_backBuffer.get();
@@ -125,11 +126,18 @@ bool ApplicationBase::Initialize()
 	return LoadContent();
 }
 
+void ApplicationBase::ResetRenderTarget()
+{
+	SIZE windowSize = getMainWindow()->getClientSize();
+	ID3D11RenderTargetView* backBuffer = m_backBuffer.get();
+	m_context->OMSetRenderTargets(1, &backBuffer, m_depthStencilView.get());
+	SetViewPort(windowSize);
+}
 
 int ApplicationBase::MainLoop()
 {
 	MSG msg = { 0 };
-    float t = 0.0f;
+	float t = 0.0f;
 	DWORD dwTimeStart = 0;
 	while (msg.message != WM_QUIT)
 	{
@@ -141,9 +149,9 @@ int ApplicationBase::MainLoop()
 		else
 		{
 			DWORD dwTimeCur = GetTickCount();
-			if( dwTimeStart == 0 )
+			if (dwTimeStart == 0)
 				dwTimeStart = dwTimeCur;
-			t = ( dwTimeCur - dwTimeStart ) / 1000.0f;
+			t = (dwTimeCur - dwTimeStart) / 1000.0f;
 			dwTimeStart = dwTimeCur;
 			Update(t);
 			Render();
@@ -159,9 +167,9 @@ void ApplicationBase::Shutdown()
 	m_depthStencilTexture.reset();
 	m_depthStencilView.reset();
 	m_backBuffer.reset();
+	m_backBufferTexture.reset();
 	m_swapChain.reset();
 	m_context.reset();
-	m_device.m_deviceObject.reset();
 	m_keyboard.reset();
 	m_mouse.reset();
 	m_input.m_inputObject.reset();

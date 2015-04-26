@@ -6,6 +6,7 @@
 #include <xnamath.h>
 #include <vector>
 #include "gk2_vertices.h"
+#include "gk2_lightShadowEffect.h"
 using namespace std;
 namespace gk2
 {
@@ -39,7 +40,6 @@ namespace gk2
 		std::shared_ptr<ID3D11PixelShader> m_pixelShader;
 		std::shared_ptr<ID3D11InputLayout> m_inputLayout;
 
-
 		std::shared_ptr<ID3D11Buffer> m_vbRoom;
 		std::shared_ptr<ID3D11Buffer> m_ibRoom;
 
@@ -58,9 +58,11 @@ namespace gk2
 		std::shared_ptr<ID3D11BlendState> m_bsAlpha;
 		std::shared_ptr<ID3D11BlendState> m_bsAdd;
 
+		std::shared_ptr<LightShadowEffect> m_lightShadowEffect;
+
 		//dane okrêgu
 		XMFLOAT2 circleCenter = XMFLOAT2(-0.9f - 1.3f / 2.0f, -1.0f + 1.3f / 2.0f* sqrt(3));
-		float circleRadius = 0.5f;
+		float circleRadius = 1.0f;
 
 		std::shared_ptr<ID3D11Buffer> m_vbCircle;
 		std::shared_ptr<ID3D11Buffer> m_ibCircle;
@@ -69,12 +71,16 @@ namespace gk2
 		void inverse_kinematics(XMFLOAT3 pos, XMFLOAT3 normal, float &a1, float &a2,
 			float &a3, float &a4, float &a5);
 
-		std::shared_ptr<ID3D11Buffer> m_cbWorld;
-		std::shared_ptr<ID3D11Buffer> m_cbView;
-		std::shared_ptr<ID3D11Buffer> m_cbProj;
+		std::shared_ptr<CBMatrix> m_cbWorld;
+		std::shared_ptr<CBMatrix> m_cbView;
+		std::shared_ptr<CBMatrix> m_cbProj;
+		std::shared_ptr<gk2::ConstantBuffer<XMFLOAT4>> m_cameraPosCB;
+		std::shared_ptr<gk2::ConstantBuffer<XMFLOAT4>> m_lightPosCB;
+		std::shared_ptr<gk2::ConstantBuffer<XMFLOAT4>> m_surfaceColorCB;
 		std::shared_ptr<ID3D11Buffer> m_cbLightPos;
 		std::shared_ptr<ID3D11Buffer> m_cbLightColors;
 		std::shared_ptr<ID3D11Buffer> m_cbSurfaceColor;
+		std::shared_ptr<ID3D11InputLayout> m_layout;
 
 
 		static const std::wstring ShaderFile;
@@ -84,6 +90,7 @@ namespace gk2
 		void InitializeConstantBuffers();
 		void InitializeRenderStates();
 		void InitializeCamera();
+		void InitializeShadowEffects();
 
 		void InitializeRoom();
 		void InitializePlane();
@@ -100,7 +107,7 @@ namespace gk2
 
 		void SetLight0();
 
-
+		void DrawScene();
 		void DrawRoom();
 		void DrawPlane(bool val = false);
 		void DrawPuma();
