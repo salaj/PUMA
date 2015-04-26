@@ -19,7 +19,12 @@ namespace gk2
 		XMMATRIX GetViewMatrix();
 		void GetViewMatrix(XMMATRIX& viewMatrix);
 		XMFLOAT4 GetPosition();
-		void UpdatePosition(XMFLOAT3&);
+		void UpdatePosition(XMVECTOR& offset);
+		void BuildView();
+
+		XMVECTOR camPosition;
+		XMVECTOR camTarget;
+		XMVECTOR camUp;
 
 	private:
 		float m_angleX;
@@ -27,9 +32,12 @@ namespace gk2
 		float m_distance;
 		float m_minDistance;
 		float m_maxDistance;
-		XMFLOAT3 m_position;
+		XMVECTOR lastCamTarget;
+		XMMATRIX camView;
+		XMMATRIX matrixRot;
 
 		void ClampDistance();
+		void calculateTargetVector();
 	};
 }
 

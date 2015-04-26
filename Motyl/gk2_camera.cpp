@@ -6,7 +6,10 @@ Camera::Camera(float minDistance, float maxDistance, float distance)
 	: m_angleX(0.0f), m_angleY(0.0f), m_distance(distance)
 {
 	SetRange(minDistance, maxDistance);
-	m_position = XMFLOAT3(0, 0, 10);
+	camPosition = XMVectorSet(0.0f, 0.0f, -10.0f, 0.0f);
+	camTarget = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+	camUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	lastCamTarget = camTarget;
 }
 
 void Camera::ClampDistance()
@@ -36,21 +39,30 @@ void Camera::Zoom(float d)
 
 void Camera::Rotate(float dx, float dy)
 {
-	m_angleX = XMScalarModAngle(m_angleX + dx);
-	m_angleY = XMScalarModAngle(m_angleY + dy);
+	RotateHorizontally(dy);
+	RotateVertically(dx);
+	calculateTargetVector();
 }
 
 void Camera::RotateHorizontally(float dy)
 {
 	float val = m_angleY + dy;
 	float clamped;
-	if (val < -XM_PI)
-		clamped = -XM_PI;
-	else if (val > XM_PI)
-		clamped = XM_PI;
+	if (val < -XM_PIDIV2)
+		clamped = -XM_PIDIV2;
+	else if (val > XM_PIDIV2)
+		clamped = XM_PIDIV2;
 	else
 		clamped = val;
 	m_angleY = clamped;
+
+}
+
+void Camera::calculateTargetVector()
+{
+	matrixRot = XMMatrixRotationAxis(XMVector3Cross(lastCamTarget, camUp), m_angleY)*
+		XMMatrixRotationAxis(camUp, m_angleX);
+	camTarget = XMVector3TransformCoord(lastCamTarget, matrixRot);
 }
 
 void Camera::RotateVertically(float dx)
@@ -64,7 +76,14 @@ void Camera::RotateVertically(float dx)
 	else
 		clamped = val;
 	m_angleX = clamped;
+
 }
+
+void Camera::BuildView()
+{
+	camView = XMMatrixLookToLH(camPosition, camTarget, camUp);
+}
+
 
 XMMATRIX Camera::GetViewMatrix()
 {
@@ -75,26 +94,25 @@ XMMATRIX Camera::GetViewMatrix()
 
 void Camera::GetViewMatrix(XMMATRIX& viewMtx)
 {
-	viewMtx = XMMatrixRotationX(m_angleX) * XMMatrixRotationY(-m_angleY) *
-		XMMatrixTranslation(m_position.x, m_position.y, m_position.z);
+	BuildView();
+	viewMtx = camView;
 }
 
-void Camera::UpdatePosition(XMFLOAT3& offset)
+void Camera::UpdatePosition(XMVECTOR& offset)
 {
-	m_position.x += offset.x;
-	m_position.y += offset.y;
-	m_position.z += offset.z;
+	float factor = 0.01f;
+	offset *= factor;
+	camPosition += offset;
+	lastCamTarget = camTarget;
+	m_angleX = 0;
+	m_angleY = 0;
 }
 
 XMFLOAT4 Camera::GetPosition()
 {
-	XMMATRIX viewMtx;
-	GetViewMatrix(viewMtx);
-	XMVECTOR det;
-	viewMtx = XMMatrixInverse(&det, viewMtx);
-	XMMATRIX alt = XMMatrixTranslation(0.0f, 0.0f, -m_distance) * XMMatrixRotationY(m_angleY) * XMMatrixRotationX(-m_angleX);
-	XMFLOAT3 res(0.0f, 0.0f, 0.0f);
-	XMVECTOR transl = XMVector3TransformCoord(XMLoadFloat3(&res), viewMtx);
-	XMStoreFloat3(&res, transl);
-	return XMFLOAT4(res.x, res.y, res.z, 1.0f);
+	return XMFLOAT4(
+		XMVectorGetX(camPosition),
+		XMVectorGetY(camPosition), 
+		XMVectorGetZ(camPosition), 
+		1.0f);
 }

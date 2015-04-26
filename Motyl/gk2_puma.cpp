@@ -578,30 +578,30 @@ void Puma::UpdateInput()
 	static KeyboardState state;
 	if (!m_keyboard->GetState(state))
 		return;
-	float factor = 0.1f;
+	float factor = 0.01f;
 	if (state.isKeyDown(DIK_W))
 	{
-		m_camera.UpdatePosition(XMFLOAT3(0, 0, -factor));
+		m_camera.UpdatePosition(XMVector3Normalize(m_camera.camTarget));
 	}
 	if (state.isKeyDown(DIK_S))
 	{
-		m_camera.UpdatePosition(XMFLOAT3(0, 0, factor));
+		m_camera.UpdatePosition(XMVector3Normalize(-m_camera.camTarget));
 	}
 	if (state.isKeyDown(DIK_A))
 	{
-		m_camera.UpdatePosition(XMFLOAT3(factor, 0, 0));
+		m_camera.UpdatePosition(XMVector3Normalize(XMVector3Cross(XMVector3Normalize(m_camera.camTarget), m_camera.camUp)));
 	}
 	if (state.isKeyDown(DIK_D))
 	{
-		m_camera.UpdatePosition(XMFLOAT3(-factor, 0, 0));
-}
+		m_camera.UpdatePosition(XMVector3Normalize(XMVector3Cross(m_camera.camUp, XMVector3Normalize(m_camera.camTarget))));
+	}
 	if (state.isKeyDown(DIK_Z))
 	{
-		m_camera.UpdatePosition(XMFLOAT3(0, -factor, 0));
+		m_camera.UpdatePosition(XMVector3Normalize(m_camera.camUp));
 	}
 	if (state.isKeyDown(DIK_X))
 	{
-		m_camera.UpdatePosition(XMFLOAT3(0, factor, 0));
+		m_camera.UpdatePosition(XMVector3Normalize(-m_camera.camUp));
 	}
 }
 
@@ -616,12 +616,7 @@ void Puma::Update(float dt)
 	if (prevState.isButtonDown(0))
 	{
 		POINT d = currentState.getMousePositionChange();
-		m_camera.RotateVertically(d.y / 300.f);
-	}
-	else if (prevState.isButtonDown(1))
-	{
-		POINT d = currentState.getMousePositionChange();
-		m_camera.RotateHorizontally(d.x / 300.f);
+		m_camera.Rotate(d.x / 300.f, d.y / 300.f);
 	}
 	else
 		change = false;
