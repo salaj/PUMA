@@ -403,21 +403,21 @@ void Puma::UpdateCamera(const XMMATRIX& view)
 void Puma::SetLight0()
 //Setup one positional light at the camera
 {
-	//XMFLOAT4 positions[3];
-	//ZeroMemory(positions, sizeof(XMFLOAT4) * 3);
-	//positions[0] = m_camera.GetPosition();
-	////positions[1] = XMFLOAT4(-2, -2, -2, 1);//m_camera.GetPosition();
-	////positions[2] = XMFLOAT4(0, 0, -10, 1);//m_camera.GetPosition();
-	//m_context->UpdateSubresource(m_cbLightPos.get(), 0, 0, positions, 0, 0);
+	XMFLOAT4 positions[3];
+	ZeroMemory(positions, sizeof(XMFLOAT4) * 3);
+	positions[0] = m_camera.GetPosition();
+	//positions[1] = XMFLOAT4(-2, -2, -2, 1);//m_camera.GetPosition();
+	//positions[2] = XMFLOAT4(0, 0, -10, 1);//m_camera.GetPosition();
+	m_context->UpdateSubresource(m_cbLightPos.get(), 0, 0, positions, 0, 0);
 
-	//XMFLOAT4 colors[5];
-	//ZeroMemory(colors, sizeof(XMFLOAT4) * 5);
-	//colors[0] = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f); //ambient color
-	//colors[1] = XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f); //surface [ka, kd, ks, m]
-	//colors[2] = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f); //light0 color
-	////colors[3] = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f); //light0 color
-	////colors[4] = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f); //light0 color
-	//m_context->UpdateSubresource(m_cbLightColors.get(), 0, 0, colors, 0, 0);
+	XMFLOAT4 colors[5];
+	ZeroMemory(colors, sizeof(XMFLOAT4) * 5);
+	colors[0] = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f); //ambient color
+	colors[1] = XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f); //surface [ka, kd, ks, m]
+	colors[2] = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f); //light0 color
+	//colors[3] = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f); //light0 color
+	//colors[4] = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f); //light0 color
+	m_context->UpdateSubresource(m_cbLightColors.get(), 0, 0, colors, 0, 0);
 }
 
 void Puma::DrawRoom()
@@ -525,16 +525,14 @@ void Puma::inverse_kinematics(XMFLOAT3 pos, XMFLOAT3 normal, float &a1, float &a
 	float k = l1 + l2 * cosf(a3), l = l2 * sinf(a3);
 	a2 = -atan2(pos2.y, sqrtf(pos2.x*pos2.x + pos2.z*pos2.z)) - atan2(l, k);
 	XMFLOAT3 normal1;
-	XMMATRIX m1 = XMMATRIX(normal.x, 0, 0, 0,
-		normal.y, 0, 0, 0,
-		normal.z, 0, 0, 0,
-		0.0f, 0, 0, 0) * XMMatrixRotationY(-a1);
-	normal1 = XMFLOAT3(m1._11, m1._21, m1._31);
-	XMMATRIX m2 = XMMATRIX(normal1.x, 0, 0, 0,
-		normal1.y, 0, 0, 0,
-		normal1.z, 0, 0, 0,
-		0.0f, 0, 0, 0) * XMMatrixRotationZ(-(a2 + a3));
-	normal1 = XMFLOAT3(m2._11, m2._21, m2._31);
+	XMVECTOR a = XMVector3Transform(XMVectorSet(normal.x, normal.y, normal.z, 0.0f), XMMatrixRotationY(-a1));
+	normal1 = XMFLOAT3(XMVectorGetX(a), XMVectorGetY(a), XMVectorGetZ(a));
+	
+
+	XMVECTOR b = XMVector3Transform(XMVectorSet(normal1.x, normal1.y, normal1.z, 0.0f), XMMatrixRotationZ(-(a2 + a3)));
+	normal1 = XMFLOAT3(XMVectorGetX(b), XMVectorGetY(b), XMVectorGetZ(b));
+
+	
 	a5 = acosf(normal1.x);
 	a4 = atan2(normal1.z, normal1.y);
 }
@@ -670,32 +668,28 @@ void Puma::Render()
 	if (m_context == nullptr)
 		return;
 
-
-	////Clear buffers
-	//float clearColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	//m_context->ClearRenderTargetView(m_backBuffer.get(), clearColor);
-	//m_context->ClearDepthStencilView(m_depthStencilView.get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-	//DrawScene();
-
-	m_lightShadowEffect->SetupShadow(m_context);
-	m_phongEffect->Begin(m_context);
-	DrawScene(false);
-	m_phongEffect->End();
-	//m_particles->Render(m_context, XMFLOAT3());
-	m_lightShadowEffect->EndShadow();
-
-	ResetRenderTarget();
-	m_cbProj->Update(m_context, m_projMtx);
-	UpdateCamera(m_camera.GetViewMatrix());
-	
 	float clearColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	m_context->ClearRenderTargetView(m_backBuffer.get(), clearColor);
 	m_context->ClearDepthStencilView(m_depthStencilView.get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
+	
 
-	m_lightShadowEffect->Begin(m_context);
+	//m_lightShadowEffect->SetupShadow(m_context);
+	//m_phongEffect->Begin(m_context);
+	//DrawScene(false);
+	//m_phongEffect->End();
+	////m_particles->Render(m_context, XMFLOAT3());
+	//m_lightShadowEffect->EndShadow();
+
+	//ResetRenderTarget();
+	//m_cbProj->Update(m_context, m_projMtx);
+	//UpdateCamera(m_camera.GetViewMatrix());
+	
+
+
+	//m_lightShadowEffect->Begin(m_context);
 	DrawScene(true);
-	m_lightShadowEffect->End();
+	//m_lightShadowEffect->End();
 
 	/*m_context->OMSetBlendState(m_bsAlpha.get(), nullptr, BS_MASK);
 	m_context->OMSetDepthStencilState(m_dssNoWrite.get(), 0);
