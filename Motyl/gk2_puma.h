@@ -7,6 +7,10 @@
 #include <vector>
 #include "gk2_vertices.h"
 #include "gk2_lightShadowEffect.h"
+#include "gk2_phongEffect.h"
+
+#include "gk2_particles.h"
+
 using namespace std;
 namespace gk2
 {
@@ -24,7 +28,6 @@ namespace gk2
 		virtual void Update(float dt);
 		virtual void Render();
 	private:
-
 		static const unsigned int VB_STRIDE;
 		static const unsigned int VB_OFFSET;
 		static const unsigned int BS_MASK;
@@ -58,11 +61,14 @@ namespace gk2
 		std::shared_ptr<ID3D11BlendState> m_bsAlpha;
 		std::shared_ptr<ID3D11BlendState> m_bsAdd;
 
+		std::shared_ptr<ID3D11DepthStencilState> m_dssNoWrite;
+
 		std::shared_ptr<LightShadowEffect> m_lightShadowEffect;
+		std::shared_ptr<gk2::PhongEffect> m_phongEffect;
 
 		//dane okrêgu
 		XMFLOAT2 circleCenter = XMFLOAT2(-0.9f - 1.3f / 2.0f, -1.0f + 1.3f / 2.0f* sqrt(3));
-		float circleRadius = 1.0f;
+		float circleRadius = 0.5f;
 
 		std::shared_ptr<ID3D11Buffer> m_vbCircle;
 		std::shared_ptr<ID3D11Buffer> m_ibCircle;
@@ -82,6 +88,8 @@ namespace gk2
 		std::shared_ptr<ID3D11Buffer> m_cbSurfaceColor;
 		std::shared_ptr<ID3D11InputLayout> m_layout;
 
+
+		std::shared_ptr<gk2::ParticleSystem> m_particles;
 
 		static const std::wstring ShaderFile;
 		static const std::wstring PumaFiles[6];
@@ -107,7 +115,7 @@ namespace gk2
 
 		void SetLight0();
 
-		void DrawScene();
+		void DrawScene(bool mirrored = false);
 		void DrawRoom();
 		void DrawPlane(bool val = false);
 		void DrawPuma();

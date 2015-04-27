@@ -121,6 +121,11 @@ void Puma::InitializeRenderStates()
 	bsDesc.RenderTarget[0].DestBlend = D3D11_BLEND_DEST_COLOR;
 	bsDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
 	m_bsAdd = m_device.CreateBlendState(bsDesc);
+
+
+	D3D11_DEPTH_STENCIL_DESC dssDesc2 = m_device.DefaultDepthStencilDesc();
+	dssDesc2.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+	m_dssNoWrite = m_device.CreateDepthStencilState(dssDesc2);
 }
 
 void Puma::InitializeCamera()
@@ -194,6 +199,14 @@ void Puma::InitializeRoom()
 }
 void Puma::InitializeShadowEffects()
 {
+
+	m_phongEffect.reset(new PhongEffect(m_device, m_layout));
+	m_phongEffect->SetProjMtxBuffer(m_cbProj);
+	m_phongEffect->SetViewMtxBuffer(m_cbView);
+	m_phongEffect->SetWorldMtxBuffer(m_cbWorld);
+	m_phongEffect->SetLightPosBuffer(m_lightPosCB);
+	m_phongEffect->SetSurfaceColorBuffer(m_surfaceColorCB);
+
 	m_lightShadowEffect.reset(new LightShadowEffect(m_device, m_layout));
 	m_lightShadowEffect->SetProjMtxBuffer(m_cbProj);
 	m_lightShadowEffect->SetViewMtxBuffer(m_cbView);
@@ -296,7 +309,7 @@ void Puma::InitializeCircle()
 		pos = XMVector3Transform(pos, XMMatrixTranslation(circleCenter.x, circleCenter.y, 0.0f));
 	
 		circleVertices[t].Pos = XMFLOAT3(XMVectorGetX(pos), XMVectorGetY(pos), XMVectorGetZ(pos));
-		circleVertices[t].Normal = XMFLOAT3(0.5f, sqrt(3) / 2.0f, 0.0f);
+		circleVertices[t].Normal = XMFLOAT3(sqrt(3) / 2.0f, 0.5f, 0.0f);
 	}
 
 	m_vbCircle = m_device.CreateVertexBuffer(circleVertices, verticesAmount);
@@ -346,8 +359,13 @@ bool Puma::LoadContent()
 	InitializeCircle();
 	InitializeShadowEffects();
 
+	m_particles.reset(new ParticleSystem(m_device, XMFLOAT3(-1.0f, -1.1f, 0.46f)));
+	m_particles->SetViewMtxBuffer(m_cbView);
+	m_particles->SetProjMtxBuffer(m_cbProj);
+
 	SetShaders();
 	SetConstantBuffers();
+
 
 	return true;
 }
@@ -385,21 +403,21 @@ void Puma::UpdateCamera(const XMMATRIX& view)
 void Puma::SetLight0()
 //Setup one positional light at the camera
 {
-	XMFLOAT4 positions[3];
-	ZeroMemory(positions, sizeof(XMFLOAT4) * 3);
-	positions[0] = m_camera.GetPosition();
-	//positions[1] = XMFLOAT4(-2, -2, -2, 1);//m_camera.GetPosition();
-	//positions[2] = XMFLOAT4(0, 0, -10, 1);//m_camera.GetPosition();
-	m_context->UpdateSubresource(m_cbLightPos.get(), 0, 0, positions, 0, 0);
+	//XMFLOAT4 positions[3];
+	//ZeroMemory(positions, sizeof(XMFLOAT4) * 3);
+	//positions[0] = m_camera.GetPosition();
+	////positions[1] = XMFLOAT4(-2, -2, -2, 1);//m_camera.GetPosition();
+	////positions[2] = XMFLOAT4(0, 0, -10, 1);//m_camera.GetPosition();
+	//m_context->UpdateSubresource(m_cbLightPos.get(), 0, 0, positions, 0, 0);
 
-	XMFLOAT4 colors[5];
-	ZeroMemory(colors, sizeof(XMFLOAT4) * 5);
-	colors[0] = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f); //ambient color
-	colors[1] = XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f); //surface [ka, kd, ks, m]
-	colors[2] = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f); //light0 color
-	//colors[3] = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f); //light0 color
-	//colors[4] = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f); //light0 color
-	m_context->UpdateSubresource(m_cbLightColors.get(), 0, 0, colors, 0, 0);
+	//XMFLOAT4 colors[5];
+	//ZeroMemory(colors, sizeof(XMFLOAT4) * 5);
+	//colors[0] = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f); //ambient color
+	//colors[1] = XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f); //surface [ka, kd, ks, m]
+	//colors[2] = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f); //light0 color
+	////colors[3] = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f); //light0 color
+	////colors[4] = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f); //light0 color
+	//m_context->UpdateSubresource(m_cbLightColors.get(), 0, 0, colors, 0, 0);
 }
 
 void Puma::DrawRoom()
@@ -468,7 +486,7 @@ void Puma::DrawMirroredWorld()
 	XMVECTOR det;
 	XMMATRIX m_mirrorMtx;
 	XMMATRIX m = XMMatrixRotationY(XM_PIDIV2) * XMMatrixRotationZ(XM_PI / 6) * XMMatrixTranslation(-1.48, 0, 0);// *XMMatrixRotationZ(-XM_PI / 6);
-	for (int i = 0; i < 12; ++i)
+	/*for (int i = 0; i < 12; ++i)*/
 		m_mirrorMtx = XMMatrixInverse(&det,
 		m)
 		* scale *
@@ -496,13 +514,6 @@ void Puma::inverse_kinematics(XMFLOAT3 pos, XMFLOAT3 normal, float &a1, float &a
 	float &a3, float &a4, float &a5)
 {
 	float l1 = .91f, l2 = .81f, l3 = .33f, dy = .27f, dz = .26f;
-
-	float len = sqrtf( normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
-
-	normal.x /= len;
-	normal.y /= len;
-	normal.z /= len;
-
 	float normalizationFactor = sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
 	normal = XMFLOAT3(normal.x / normalizationFactor, normal.y / normalizationFactor, normal.z / normalizationFactor);
 	XMFLOAT3 pos1 = XMFLOAT3(pos.x + normal.x * l3, pos.y + normal.y * l3, pos.z + normal.z * l3);
@@ -514,15 +525,15 @@ void Puma::inverse_kinematics(XMFLOAT3 pos, XMFLOAT3 normal, float &a1, float &a
 	float k = l1 + l2 * cosf(a3), l = l2 * sinf(a3);
 	a2 = -atan2(pos2.y, sqrtf(pos2.x*pos2.x + pos2.z*pos2.z)) - atan2(l, k);
 	XMFLOAT3 normal1;
-	XMMATRIX m1 = XMMatrixRotationY(-a1) * XMMATRIX(normal.x, 0, 0, 0,
+	XMMATRIX m1 = XMMATRIX(normal.x, 0, 0, 0,
 		normal.y, 0, 0, 0,
 		normal.z, 0, 0, 0,
-		0.0f, 0, 0, 0);
+		0.0f, 0, 0, 0) * XMMatrixRotationY(-a1);
 	normal1 = XMFLOAT3(m1._11, m1._21, m1._31);
-	XMMATRIX m2 = XMMatrixRotationZ(-(a2 + a3)) * XMMATRIX(normal1.x, 0, 0, 0,
+	XMMATRIX m2 = XMMATRIX(normal1.x, 0, 0, 0,
 		normal1.y, 0, 0, 0,
 		normal1.z, 0, 0, 0,
-		0.0f, 0, 0, 0);
+		0.0f, 0, 0, 0) * XMMatrixRotationZ(-(a2 + a3));
 	normal1 = XMFLOAT3(m2._11, m2._21, m2._31);
 	a5 = acosf(normal1.x);
 	a4 = atan2(normal1.z, normal1.y);
@@ -539,23 +550,12 @@ void Puma::UpdatePuma(float dt)
 	float t = 2 * lap / LAP_TIME;
 	t *= XM_2PI;
 
-	XMVECTOR pos = XMLoadFloat3(
-		&XMFLOAT3(
-		circleRadius * cos(t),
-		circleRadius * sin(t),
-		0));
-	pos = XMVector3Transform(pos, XMMatrixRotationY(XM_PIDIV2));
-	pos = XMVector3Transform(pos, XMMatrixRotationZ(XM_PI / 6.0f));
-	pos = XMVector3Transform(pos, XMMatrixTranslation(circleCenter.x, circleCenter.y, 0.0f));
-	XMFLOAT3 norm = XMFLOAT3(0.5f, sqrtf(3) / 2.0f, 0.0f);
+	XMFLOAT3 norm = XMFLOAT3(sqrtf(3) / 2.0f, 0.5f, 0.0f);
 
 	float a1, a2, a3, a4, a5;
-	XMFLOAT3 p = XMFLOAT3(
-		XMVectorGetX(pos),
-		XMVectorGetY(pos),
-		XMVectorGetZ(pos));
-	p = circleVertices[((int)counter) % 360].Pos;
+	XMFLOAT3 p = circleVertices[((int)counter) % 360].Pos;
 	counter+=0.1f;
+	m_particles.get()->m_emitterPos = p;
 	inverse_kinematics(p, norm, a1, a2, a3, a4, a5);
 	//a1 = 0;
 	vector<VertexPosNormal> newVertices[6];
@@ -641,11 +641,16 @@ void Puma::Update(float dt)
 	//if (change)
 		UpdateCamera(m_camera.GetViewMatrix());
 	UpdatePuma(dt);
+
+	m_particles->Update(m_context, dt, m_camera.GetPosition());
 }
 
-void Puma::DrawScene()
+void Puma::DrawScene(bool mirrored)
 {
-	DrawMirroredWorld();
+	if (mirrored)
+	{
+		DrawMirroredWorld();
+	}
 	m_context->OMSetBlendState(m_bsAlpha.get(), 0, BS_MASK);
 
 	SetLight0();
@@ -665,25 +670,38 @@ void Puma::Render()
 	if (m_context == nullptr)
 		return;
 
+
+	////Clear buffers
+	//float clearColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	//m_context->ClearRenderTargetView(m_backBuffer.get(), clearColor);
+	//m_context->ClearDepthStencilView(m_depthStencilView.get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+	//DrawScene();
+
 	m_lightShadowEffect->SetupShadow(m_context);
-	//m_phongEffect->Begin(m_context);
-	DrawScene();
-	//m_phongEffect->End();
-	//m_particles->Render(m_context);
+	m_phongEffect->Begin(m_context);
+	DrawScene(false);
+	m_phongEffect->End();
+	//m_particles->Render(m_context, XMFLOAT3());
 	m_lightShadowEffect->EndShadow();
 
 	ResetRenderTarget();
 	m_cbProj->Update(m_context, m_projMtx);
 	UpdateCamera(m_camera.GetViewMatrix());
-	//Clear buffers
+	
 	float clearColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	m_context->ClearRenderTargetView(m_backBuffer.get(), clearColor);
 	m_context->ClearDepthStencilView(m_depthStencilView.get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 
 	m_lightShadowEffect->Begin(m_context);
-	DrawScene();
+	DrawScene(true);
 	m_lightShadowEffect->End();
+
+	/*m_context->OMSetBlendState(m_bsAlpha.get(), nullptr, BS_MASK);
+	m_context->OMSetDepthStencilState(m_dssNoWrite.get(), 0);
+	m_particles->Render(m_context, XMFLOAT3());
+	m_context->OMSetDepthStencilState(nullptr, 0);
+	m_context->OMSetBlendState(nullptr, nullptr, BS_MASK);*/
 
 	m_swapChain->Present(0, 0);
 }

@@ -72,8 +72,8 @@ PSInput VS_Main(VSInput i)
 }
 
 static const float3 ambientColor = float3(0.3f, 0.3f, 0.3f);
-static const float3 kd = 0.7, m = 1.0f;
-static const float4 defLightColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
+static const float3 kd = 0.7f, m = 0.1f;
+static const float4 defLightColor = float4(0.3f, 0.3f, 0.3f, 0.0f);
 
 float4 PS_Main(PSInput i) : SV_TARGET
 {
