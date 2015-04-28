@@ -337,7 +337,9 @@ void Puma::InitializeCyllinder()
 			0));
 
 		pos = XMVector3Transform(pos, XMMatrixRotationY(XM_PIDIV2));
-		pos = XMVector3Transform(pos, XMMatrixTranslation(-0.5f, -0.5f, 2.0f));
+		pos = XMVector3Transform(pos, XMMatrixRotationX(XM_PI));
+		pos = XMVector3Transform(pos, XMMatrixTranslation(-0.5f, -0.5f, 1.0f));
+
 
 		cyllinderVertices[t].Pos = XMFLOAT3(XMVectorGetX(pos), XMVectorGetY(pos), XMVectorGetZ(pos));
 		XMStoreFloat3(&cyllinderVertices[t].Normal, (XMVectorSet(0.0f, 1.0f, -1.0f, 1.0f)));
@@ -353,22 +355,27 @@ void Puma::InitializeCyllinder()
 			0));
 
 		pos = XMVector3Transform(pos, XMMatrixRotationY(XM_PIDIV2));
-		pos = XMVector3Transform(pos, XMMatrixTranslation(2.5f, -0.5f, 2.0f));
-		
+		pos = XMVector3Transform(pos, XMMatrixRotationX(XM_PI));
+		pos = XMVector3Transform(pos, XMMatrixTranslation(2.5f, -0.5f, 1.0f));
+				
  		cyllinderVertices[t].Pos = XMFLOAT3(XMVectorGetX(pos), XMVectorGetY(pos), XMVectorGetZ(pos));
 		XMStoreFloat3(&cyllinderVertices[t].Normal, (XMVectorSet(0.0f, 1.0f, -1.0f, 1.0f)));
 	}
 	m_vbCyllinder = m_device.CreateVertexBuffer(cyllinderVertices, 2 * verticesAmount);
 
 	int indicesAmount = verticesAmount * 2;
-	unsigned short* indices = new unsigned short[indicesAmount];
+	unsigned short* indices = new unsigned short[indicesAmount + 4];
 	int counter = 0;
 	for (int i = 0; i < indicesAmount; i += 2)
 	{
-		indices[i] = counter;
-		indices[i + 1] = counter + verticesAmount;
+		indices[i] = counter + verticesAmount;
+		indices[i+1] = counter;
 		counter++;
 	}
+	//indices[indicesAmount] = verticesAmount;
+	//indices[indicesAmount + 1] = 0;
+	//indices[indicesAmount + 2] = 0;
+	//indices[indicesAmount + 2] = counter + verticesAmount;
 
 	m_ibCyllinder = m_device.CreateIndexBuffer(indices, indicesAmount);
 
@@ -565,7 +572,7 @@ void Puma::DrawCyllinder()
 	ID3D11Buffer* b = m_vbCyllinder.get();
 	m_context->IASetVertexBuffers(0, 1, &b, &VB_STRIDE, &VB_OFFSET);
 	m_context->IASetIndexBuffer(m_ibCyllinder.get(), DXGI_FORMAT_R16_UINT, 0);
-	m_context->DrawIndexed(240, 0, 0);
+	m_context->DrawIndexed(244, 0, 0);
 	m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
