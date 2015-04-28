@@ -554,6 +554,9 @@ void Puma::UpdatePuma(float dt)
 	XMFLOAT3 p = circleVertices[((int)counter) % 360].Pos;
 	counter+=0.1f;
 	m_particles.get()->m_emitterPos = p;
+	XMVECTOR rVec = XMLoadFloat3(&p) - XMLoadFloat3(&XMFLOAT3(circleCenter.x, circleCenter.y, 0.0f));
+	m_particles.get()->m_perpendicularToPlane = rVec;
+	m_particles.get()->m_startPosition = p;
 	inverse_kinematics(p, norm, a1, a2, a3, a4, a5);
 	//a1 = 0;
 	vector<VertexPosNormal> newVertices[6];
@@ -668,34 +671,36 @@ void Puma::Render()
 	if (m_context == nullptr)
 		return;
 
+	/*float clearColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	m_context->ClearRenderTargetView(m_backBuffer.get(), clearColor);
+	m_context->ClearDepthStencilView(m_depthStencilView.get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);*/
+
+	
+
+	m_lightShadowEffect->SetupShadow(m_context);
+	m_phongEffect->Begin(m_context);
+	DrawScene(false);
+	m_phongEffect->End();
+	//m_particles->Render(m_context, XMFLOAT3());
+	m_lightShadowEffect->EndShadow();
+
+	ResetRenderTarget();
+	m_cbProj->Update(m_context, m_projMtx);
+	UpdateCamera(m_camera.GetViewMatrix());
+	
 	float clearColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	m_context->ClearRenderTargetView(m_backBuffer.get(), clearColor);
 	m_context->ClearDepthStencilView(m_depthStencilView.get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-	
-
-	//m_lightShadowEffect->SetupShadow(m_context);
-	//m_phongEffect->Begin(m_context);
-	//DrawScene(false);
-	//m_phongEffect->End();
-	////m_particles->Render(m_context, XMFLOAT3());
-	//m_lightShadowEffect->EndShadow();
-
-	//ResetRenderTarget();
-	//m_cbProj->Update(m_context, m_projMtx);
-	//UpdateCamera(m_camera.GetViewMatrix());
-	
-
-
-	//m_lightShadowEffect->Begin(m_context);
+	m_lightShadowEffect->Begin(m_context);
 	DrawScene(true);
-	//m_lightShadowEffect->End();
+	m_lightShadowEffect->End();
 
-	/*m_context->OMSetBlendState(m_bsAlpha.get(), nullptr, BS_MASK);
+	m_context->OMSetBlendState(m_bsAlpha.get(), nullptr, BS_MASK);
 	m_context->OMSetDepthStencilState(m_dssNoWrite.get(), 0);
 	m_particles->Render(m_context, XMFLOAT3());
 	m_context->OMSetDepthStencilState(nullptr, 0);
-	m_context->OMSetBlendState(nullptr, nullptr, BS_MASK);*/
+	m_context->OMSetBlendState(nullptr, nullptr, BS_MASK);
 
 	m_swapChain->Present(0, 0);
 }

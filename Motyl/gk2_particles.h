@@ -26,7 +26,8 @@ namespace gk2
 	{
 		XMFLOAT3 Velocity;
 		float AngleVelocity;
-
+		XMFLOAT3 StartVelocity;
+		XMFLOAT3 StartPos;
 		ParticleVelocities() : Velocity(0.0f, 0.0f, 0.0f), AngleVelocity(0.0f) { }
 	};
 
@@ -34,6 +35,7 @@ namespace gk2
 	{
 		ParticleVertex Vertex;
 		ParticleVelocities Velocities;
+		float time;
 	};
 
 	class ParticleComparer
@@ -58,6 +60,8 @@ namespace gk2
 		void Update(std::shared_ptr<ID3D11DeviceContext>& context, float dt, XMFLOAT4 cameraPos);
 		void Render(std::shared_ptr<ID3D11DeviceContext>& context, XMFLOAT3 emitterPos);
 		XMFLOAT3 m_emitterPos;
+		static XMVECTOR m_perpendicularToPlane;
+		static XMFLOAT3 m_startPosition;
 	private:
 		static const XMFLOAT3 EMITTER_DIR;	//mean direction of particles' velocity
 		static const float TIME_TO_LIVE;	//time of particle's life in seconds
