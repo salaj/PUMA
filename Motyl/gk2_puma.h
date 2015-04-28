@@ -89,6 +89,11 @@ namespace gk2
 		std::shared_ptr<ID3D11Buffer> m_ibCircle;
 		VertexPosNormal *circleVertices;
 
+
+		std::shared_ptr<ID3D11Buffer> m_vbCyllinder;
+		std::shared_ptr<ID3D11Buffer> m_ibCyllinder;
+		VertexPosNormal *cyllinderVertices;
+
 		void inverse_kinematics(XMFLOAT3 pos, XMFLOAT3 normal, float &a1, float &a2,
 			float &a3, float &a4, float &a5);
 
@@ -119,6 +124,7 @@ namespace gk2
 		void InitializePlane();
 		void InitializePuma();
 		void InitializeCircle();
+		void InitializeCyllinder();
 
 
 		void UpdateCamera(const XMMATRIX& view);
@@ -136,6 +142,7 @@ namespace gk2
 		void DrawPuma();
 		void DrawShadowVolumes();
 		void DrawCircle();
+		void DrawCyllinder();
 		void DrawMirroredWorld();
 
 		void ComputeShadowVolume();

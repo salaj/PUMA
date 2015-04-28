@@ -315,6 +315,64 @@ void Puma::InitializePuma()
 	}
 
 }
+void Puma::InitializeCyllinder()
+{
+	//ilosc punktow przyblizaj¹cych okrag
+	int verticesAmount = 120;
+	cyllinderVertices = new VertexPosNormal[2 * verticesAmount];
+
+	//k¹t o jaki bêd¹ obracane punkty
+	float delta = XM_2PI / (float)verticesAmount;
+
+	XMFLOAT3 normal = XMFLOAT3(0, 0, 1);
+
+	//wyznaczanie punktów
+	for (int t = 0; t < verticesAmount; t++)
+	{
+
+		XMVECTOR pos = XMLoadFloat3(
+			&XMFLOAT3(
+			circleRadius * cos(t * delta),
+			circleRadius * sin(t * delta),
+			0));
+
+		pos = XMVector3Transform(pos, XMMatrixRotationY(XM_PIDIV2));
+		pos = XMVector3Transform(pos, XMMatrixTranslation(-0.5f, -0.5f, 2.0f));
+
+		cyllinderVertices[t].Pos = XMFLOAT3(XMVectorGetX(pos), XMVectorGetY(pos), XMVectorGetZ(pos));
+		XMStoreFloat3(&cyllinderVertices[t].Normal, (XMVectorSet(0.0f, 1.0f, -1.0f, 1.0f)));
+	}
+
+	for (int t = verticesAmount; t < 2 * verticesAmount; t++)
+	{
+
+		XMVECTOR pos = XMLoadFloat3(
+			&XMFLOAT3(
+			circleRadius * cos(t * delta),
+			circleRadius * sin(t * delta),
+			0));
+
+		pos = XMVector3Transform(pos, XMMatrixRotationY(XM_PIDIV2));
+		pos = XMVector3Transform(pos, XMMatrixTranslation(2.5f, -0.5f, 2.0f));
+		
+ 		cyllinderVertices[t].Pos = XMFLOAT3(XMVectorGetX(pos), XMVectorGetY(pos), XMVectorGetZ(pos));
+		XMStoreFloat3(&cyllinderVertices[t].Normal, (XMVectorSet(0.0f, 1.0f, -1.0f, 1.0f)));
+	}
+	m_vbCyllinder = m_device.CreateVertexBuffer(cyllinderVertices, 2 * verticesAmount);
+
+	int indicesAmount = verticesAmount * 2;
+	unsigned short* indices = new unsigned short[indicesAmount];
+	int counter = 0;
+	for (int i = 0; i < indicesAmount; i += 2)
+	{
+		indices[i] = counter;
+		indices[i + 1] = counter + verticesAmount;
+		counter++;
+	}
+
+	m_ibCyllinder = m_device.CreateIndexBuffer(indices, indicesAmount);
+
+}
 
 void Puma::InitializeCircle()
 {
@@ -388,6 +446,7 @@ bool Puma::LoadContent()
 	InitializePuma();
 	InitializePlane();
 	InitializeCircle();
+	InitializeCyllinder();
 	InitializeShadowEffects();
 
 	m_particles.reset(new ParticleSystem(m_device, XMFLOAT3(-1.0f, -1.1f, 0.46f)));
@@ -498,6 +557,18 @@ void Puma::DrawCircle()
 	m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
+void Puma::DrawCyllinder()
+{
+	m_context->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	const XMMATRIX worldMtx = XMMatrixIdentity();
+	m_cbWorld->Update(m_context, worldMtx);
+	ID3D11Buffer* b = m_vbCyllinder.get();
+	m_context->IASetVertexBuffers(0, 1, &b, &VB_STRIDE, &VB_OFFSET);
+	m_context->IASetIndexBuffer(m_ibCyllinder.get(), DXGI_FORMAT_R16_UINT, 0);
+	m_context->DrawIndexed(240, 0, 0);
+	m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+}
+
 void Puma::DrawMirroredWorld()
 {
 	//Setup render state for writing to the stencil buffer
@@ -534,6 +605,7 @@ void Puma::DrawMirroredWorld()
 	//DrawPlane(true);
 	DrawPuma();
 	DrawCircle();
+	DrawCyllinder();
 	m_context->RSSetState(NULL);
 
 	//Restore rendering state to it's original values
@@ -917,6 +989,7 @@ void Puma::DrawScene(bool mirrored)
 	DrawRoom();
 	DrawPuma();
 	DrawCircle();
+	DrawCyllinder();
 }
 
 
@@ -929,44 +1002,44 @@ void Puma::Render()
 	m_context->ClearRenderTargetView(m_backBuffer.get(), clearColor);
 	m_context->ClearDepthStencilView(m_depthStencilView.get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);*/
 
-	ComputeShadowVolume();
-	DrawShadowVolumes();
+	//ComputeShadowVolume();
+	//DrawShadowVolumes();
 	
 	/*ComputeShadowVolume();
 	
 	m_context->OMSetDepthStencilState(m_dssShadowsOne.get(), 0);
 	m_context->RSSetState(m_rsCullBack.get());
 	DrawShadowVolumes();
-	m_context->OMSetDepthStencilState(m_dssShadowsSecond.get(), 0);
+	m_context->OMSetDepthStencilState(m_dssaShadowsSecond.get(), 0);
 	m_context->RSSetState(m_rsCullFace.get());
 	DrawShadowVolumes();
 	m_context->OMSetDepthStencilState(nullptr, 0);
 	m_context->RSSetState(NULL);*/
 
-	m_lightShadowEffect->SetupShadow(m_context);
-	m_phongEffect->Begin(m_context);
-	DrawScene(false);
-	m_phongEffect->End();
-	//m_particles->Render(m_context, XMFLOAT3());
-	m_lightShadowEffect->EndShadow();
-	
-	ResetRenderTarget();
-	m_cbProj->Update(m_context, m_projMtx);
-	UpdateCamera(m_camera.GetViewMatrix());
+	//m_lightShadowEffect->SetupShadow(m_context);
+	//m_phongEffect->Begin(m_context);
+	//DrawScene(false);
+	//m_phongEffect->End();
+	////m_particles->Render(m_context, XMFLOAT3());
+	//m_lightShadowEffect->EndShadow();
+	//
+	//ResetRenderTarget();
+	//m_cbProj->Update(m_context, m_projMtx);
+	//UpdateCamera(m_camera.GetViewMatrix());
 
 	float clearColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	m_context->ClearRenderTargetView(m_backBuffer.get(), clearColor);
 	m_context->ClearDepthStencilView(m_depthStencilView.get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-	m_lightShadowEffect->Begin(m_context);
+	//m_lightShadowEffect->Begin(m_context);
 	DrawScene(true);
-	m_lightShadowEffect->End();
+	//m_lightShadowEffect->End();
 
-	m_context->OMSetBlendState(m_bsAlpha.get(), nullptr, BS_MASK);
-	m_context->OMSetDepthStencilState(m_dssNoWrite.get(), 0);
-	m_particles->Render(m_context, XMFLOAT3());
-	m_context->OMSetDepthStencilState(nullptr, 0);
-	m_context->OMSetBlendState(nullptr, nullptr, BS_MASK);
+	//m_context->OMSetBlendState(m_bsAlpha.get(), nullptr, BS_MASK);
+	//m_context->OMSetDepthStencilState(m_dssNoWrite.get(), 0);
+	//m_particles->Render(m_context, XMFLOAT3());
+	//m_context->OMSetDepthStencilState(nullptr, 0);
+	//m_context->OMSetBlendState(nullptr, nullptr, BS_MASK);
 
 	m_swapChain->Present(0, 0);
 }
