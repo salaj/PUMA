@@ -52,17 +52,32 @@ namespace gk2
 
 		std::shared_ptr<ID3D11Buffer> m_vbPuma[6];
 		std::shared_ptr<ID3D11Buffer> m_ibPuma[6];
+		std::shared_ptr<ID3D11Buffer> m_vbPumaShadowVolume[6];
+		std::shared_ptr<ID3D11Buffer> m_ibPumaShadowVolume[6];
 		vector<VertexPosNormal> vertices[6];
+
+
 		int pumaIndicesCount[6];
+		int pumaShadowVolumeIndicesCount[6];
+		vector<XMFLOAT3> vertexes[6];
+		vector<unsigned short> indices[6];
+
+		vector<vector<int>> triangles[6];
+		vector<vector<int>> edges[6];
 
 		std::shared_ptr<ID3D11DepthStencilState> m_dssWrite;
 		std::shared_ptr<ID3D11DepthStencilState> m_dssTest;
 		std::shared_ptr<ID3D11RasterizerState> m_rsCounterClockwise;
+		std::shared_ptr<ID3D11RasterizerState> m_rsCullFace;
+		std::shared_ptr<ID3D11RasterizerState> m_rsCullBack;
 		std::shared_ptr<ID3D11BlendState> m_bsAlpha;
 		std::shared_ptr<ID3D11BlendState> m_bsAdd;
 
 		std::shared_ptr<ID3D11DepthStencilState> m_dssNoWrite;
 
+		std::shared_ptr<ID3D11DepthStencilState> m_dssShadowsOne;
+		std::shared_ptr<ID3D11DepthStencilState> m_dssShadowsSecond;
+		
 		std::shared_ptr<LightShadowEffect> m_lightShadowEffect;
 		std::shared_ptr<gk2::PhongEffect> m_phongEffect;
 
@@ -119,8 +134,16 @@ namespace gk2
 		void DrawRoom();
 		void DrawPlane(bool val = false);
 		void DrawPuma();
+		void DrawShadowVolumes();
 		void DrawCircle();
 		void DrawMirroredWorld();
+
+		void ComputeShadowVolume();
+		XMFLOAT3 Normalize(XMFLOAT3 v); 
+		float Dot(XMFLOAT3 v, XMFLOAT3 t);
+		XMFLOAT3 Scalar(XMFLOAT3 v, XMFLOAT3 t);
+		XMFLOAT3 ComputeNormalVectorForTriangle(int elementNumber, int triangle);
+		static XMFLOAT4 lightPos;
 	};
 }
 
