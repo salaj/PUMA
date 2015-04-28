@@ -29,19 +29,22 @@ bool ParticleComparer::operator()(const ParticleVertex& p1, const ParticleVertex
 }
 
 const XMFLOAT3 ParticleSystem::EMITTER_DIR = XMFLOAT3(0.0f, 1.0f, 0.0f);
-const float ParticleSystem::TIME_TO_LIVE = 5.0f;
-const float ParticleSystem::EMISSION_RATE = 15.0f;
+const float ParticleSystem::TIME_TO_LIVE = 1.0f;
+const float ParticleSystem::EMISSION_RATE = 50.0f;
 const float ParticleSystem::MAX_ANGLE = XM_PIDIV2 / 9.0f;
-const float ParticleSystem::MIN_VELOCITY = 0.2f;
-const float ParticleSystem::MAX_VELOCITY = 0.33f;
+const float ParticleSystem::MIN_VELOCITY = 1.5f;
+const float ParticleSystem::MAX_VELOCITY = 2.5f;
 const float ParticleSystem::PARTICLE_SIZE = 0.08f;
 const float ParticleSystem::PARTICLE_SCALE = 1.0f;
 const float ParticleSystem::MIN_ANGLE_VEL = -XM_PI;
 const float ParticleSystem::MAX_ANGLE_VEL = XM_PI;
-const int ParticleSystem::MAX_PARTICLES = 500;
+const int ParticleSystem::MAX_PARTICLES = 1000;
 
 const unsigned int ParticleSystem::STRIDE = sizeof(ParticleVertex);
 const unsigned int ParticleSystem::OFFSET = 0;
+
+XMVECTOR ParticleSystem::m_perpendicularToPlane = XMVECTOR();
+XMFLOAT3 ParticleSystem::m_startPosition = XMFLOAT3();
 
 ParticleSystem::ParticleSystem(DeviceHelper& device, XMFLOAT3 emitterPos)
 	: m_particlesCount(0), m_particlesToCreate(0.0f), m_emitterPos(emitterPos)
@@ -77,32 +80,33 @@ void ParticleSystem::SetProjMtxBuffer(const shared_ptr<CBMatrix>& proj)
 
 XMFLOAT3 ParticleSystem::RandomVelocity()
 {
-	float x, y;
-	do 
-	{
-		x = 2.0f * static_cast<float>(rand())/RAND_MAX - 1.0f;
-		y = 2.0f * static_cast<float>(rand())/RAND_MAX - 1.0f;
-	} while (x*x + y*y > 1.0f);
+	float x;
 	float a = tan(MAX_ANGLE);
-	XMFLOAT3 v(x * a, 1.0f, y * a);
-	XMVECTOR velocity = XMLoadFloat3(&v);
+	x = (5.0f * static_cast<float>(rand()) / RAND_MAX - 1.0f);
+	XMFLOAT3 v(x * a,0, 0);
+	XMVECTOR velocity = m_perpendicularToPlane + XMLoadFloat3(&v);
 	float  len = MIN_VELOCITY + (MAX_VELOCITY - MIN_VELOCITY) *
 				 static_cast<float>(rand())/static_cast<float>(RAND_MAX);
 	velocity = len * XMVector3Normalize(velocity);
-	XMStoreFloat3(&v, velocity);
+	v = XMFLOAT3(abs(XMVectorGetX(velocity)),
+		XMVectorGetY(velocity),
+		XMVectorGetZ(velocity));
 	return v;
 }
 
 void ParticleSystem::AddNewParticle()
 {
 	Particle p;
-	p.Vertex.Pos = m_emitterPos;
+	p.Vertex.Pos = m_startPosition;
+	p.Velocities.StartPos = m_startPosition;
 	p.Vertex.Age = 0.0f;
 	p.Vertex.Angle = 0.0f;
 	p.Vertex.Size = PARTICLE_SIZE;
 	p.Velocities.Velocity = RandomVelocity();
+	p.Velocities.StartVelocity = p.Velocities.Velocity;
 	p.Velocities.AngleVelocity = MIN_ANGLE_VEL + (MAX_ANGLE_VEL - MIN_ANGLE_VEL) *
 								 static_cast<float>(rand())/static_cast<float>(RAND_MAX);
+	p.time = 0;
 	m_particles.push_back(p);
 }
 
@@ -128,9 +132,13 @@ XMFLOAT4 operator -(const XMFLOAT4& v1, const XMFLOAT4& v2)
 
 void ParticleSystem::UpdateParticle(Particle& p, float dt)
 {
+	p.time += (dt);
 	p.Vertex.Age += dt;
-	p.Vertex.Pos = p.Vertex.Pos + p.Velocities.Velocity * dt;
-	p.Vertex.Size += PARTICLE_SCALE * PARTICLE_SIZE * dt;
+	XMVECTOR gravity = XMVectorSet(0.0f, -4.0f, 0.0f, 1.0f);
+	XMVECTOR v = XMLoadFloat3(&p.Velocities.StartVelocity);
+	XMVECTOR pos = gravity * p.time * p.time / 2.0f + v * p.time + XMLoadFloat3(&p.Velocities.StartPos);
+	XMStoreFloat3(&p.Vertex.Pos, pos);
+	//p.Vertex.Size += PARTICLE_SCALE * PARTICLE_SIZE * dt;
 	p.Vertex.Angle += p.Velocities.AngleVelocity * dt;
 }
 
@@ -169,9 +177,15 @@ void ParticleSystem::Update(shared_ptr<ID3D11DeviceContext>& context, float dt, 
 	while (m_particlesToCreate >= 1.0f)
 	{
 		--m_particlesToCreate;
+		--m_particlesToCreate;
 		if (m_particlesCount < MAX_PARTICLES)
 		{
 			AddNewParticle();
+			XMVECTOR tmp = m_perpendicularToPlane;
+			m_perpendicularToPlane = XMVector3Transform(m_perpendicularToPlane, XMMatrixScaling(1, 1, -1));
+			AddNewParticle();
+			m_perpendicularToPlane = tmp;
+			++m_particlesCount;
 			++m_particlesCount;
 		}
 	}
